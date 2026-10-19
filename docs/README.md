@@ -13,6 +13,7 @@ or operational commitments.
 | [realtime-and-api.md](realtime-and-api.md) | API/resource conventions, room events, ordering, sync, and failure handling. |
 | [security-and-trust.md](security-and-trust.md) | Roles, authorization, privacy, abuse controls, and auditability. |
 | [roadmap.md](roadmap.md) | Phases, release gates, risks, and decisions to validate. |
+| [research-foundations.md](research-foundations.md) | Primary-source research and platform constraints that shaped the plan. |
 | [epics/](epics/) | Build-ready epics with sequenced tasks and acceptance criteria. |
 | [adr/](adr/) | Architecture decision records as choices are made. |
 

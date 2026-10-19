@@ -13,12 +13,17 @@
 ## Decision gates before code
 
 1. Confirm whether Slackie is multi-workspace SaaS or a single-workspace product.
-2. Confirm owner/admin/member/guest capability matrix and private-review policy.
+2. Confirm one primary owner, optional owner/admin/member matrix, and
+   private-review policy. Guest access is unavailable until its scoped lifecycle
+   and discovery rules are designed.
 3. Confirm product differentiation; do not ship a branded Slack facsimile.
 4. Validate current PAS action, room, storage, and worker capabilities.
 5. Resolve attachment delivery before making file sharing a release promise.
-6. Establish message retention/deletion and moderation-response policy.
-7. Run usability sessions on creation, channel discovery, compose/thread, and
+6. Select the generic conversation abstraction before the first additive schema
+   migration; channel-only messages make later DM design unsafe.
+7. Validate durable change-feed sync and the 32-peer room capacity envelope.
+8. Establish message retention/deletion and moderation-response policy.
+9. Run usability sessions on creation, channel discovery, compose/thread, and
    access-denied recovery flows.
 
 ## Principal risks
@@ -26,6 +31,7 @@
 | Risk | Response |
 | --- | --- |
 | Rooms mistaken for a durable feed | Keep actions/D1 canonical and refetch-driven. |
+| Realtime room capacity silently drops users | Publish a limit and explicit polling/degraded path, or validate alternative transport. |
 | Private visibility only enforced in UI | Treat authorization predicates and negative tests as release gates. |
 | Storage gap makes file sharing unsafe | Block attachment build scope until platform support exists. |
 | Over-scoping to Slack parity | Protect MVP non-goals and separate post-MVP epics. |

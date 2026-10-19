@@ -2,7 +2,7 @@
 
 ## Authorization matrix
 
-| Capability | Owner | Admin | Member | Guest |
+| Capability | Owner | Admin | Member | Guest (future) |
 | --- | --- | --- | --- | --- |
 | Manage owners/workspace | Yes | No | No | No |
 | Invite and manage ordinary members | Yes | Policy-controlled | No | No |

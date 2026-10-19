@@ -23,7 +23,8 @@ that only intended participants can see it.
 ## MVP scope
 
 1. Create and administer a workspace.
-2. Invite or remove members and assign owner, admin, member, or guest roles.
+2. Invite or remove members and assign the approved primary-owner, owner,
+   administrator, or member role. Guest access remains a separately designed phase.
 3. Create public and private channels; browse only channels the person may see.
 4. Send, edit, delete, and react to messages in visible channels.
 5. Reply in a thread and maintain a per-channel unread baseline.

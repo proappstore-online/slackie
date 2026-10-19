@@ -15,6 +15,17 @@ when its dependencies are resolved and acceptance criteria are demonstrably met.
 | [E6](EPIC-06-validation.md) | Validation and release readiness | P1 | E0–E5 |
 | [E7](EPIC-07-expansion.md) | Post-MVP collaboration capabilities | P2 | Validated v1 |
 | [E8](EPIC-08-attachments.md) | Authorized shared attachments (blocked) | Blocked | PAS capability |
+| [E9](EPIC-09-identity-governance.md) | Identity, ownership, guest policy, governance | P0 design | E0, E1 |
+| [E10](EPIC-10-durable-sync-and-scale.md) | Durable sync, scale, online-only recovery | P0 | E3, E4 |
+| [E11](EPIC-11-attention-and-dms.md) | Attention model, threads, future DMs | P0/P1 | E3, E10 |
+| [E12](EPIC-12-search-and-retrieval.md) | Authorized search and retrieval | P1 | E2, E3, E9, E10 |
+| [E13](EPIC-13-trust-moderation-and-admin.md) | Trust, moderation, administration | P1 | E5, E9 |
+| [E14](EPIC-14-experience-accessibility-mobile.md) | Experience, accessibility, mobile | P1 | E0–E5 |
+| [E15](EPIC-15-integrations-and-workflows.md) | Integrations, bots, workflows | P2 | E9, E10, E13 |
+| [E16](EPIC-16-canvases-and-huddles.md) | Canvases, knowledge, huddles | P2 | E12–E15 |
+| [E17](EPIC-17-enterprise-and-ai.md) | Enterprise scale and AI | P3 | Mature E9–E16 |
+| [E18](EPIC-18-portability-and-launch.md) | Portability, analytics, launch | P2 | E9, E12, E13 |
 
 Priority: P0 validates the core product; P1 makes it trustworthy and releaseable;
-P2 is deliberately deferred. No item is authorization to provision PAS resources.
+P2 is deliberately deferred, P3 depends on mature operations. No item is
+authorization to provision PAS resources.

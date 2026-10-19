@@ -14,7 +14,8 @@ Browser application
                                             ▼
                                   Slackie service boundary
                                   ├─ D1: tenant-scoped relational data
-                                  ├─ rooms: transient refetch hints
+  ├─ conversation change feed: durable catch-up cursor
+  ├─ rooms: transient refetch hints
                                   └─ audit and moderation records
 ```
 
@@ -52,11 +53,12 @@ permitted only by a SQL authorizer that proves active workspace membership and
 either public-channel access or an explicit `channel_members` row. The platform
 rechecks socket authorization; denied access must fail closed.
 
-D1 and actions stay authoritative. After a successful `send_message` action, a
-client can broadcast a tiny `messages_changed` hint. Peers refetch the newest
-authorized slice. They never trust a peer event body as a message record. Rooms
-offer no replay, have small payload/peer limits, and may duplicate or miss an
-event, so reconnect, focus, and interval recovery use keyset timeline reads.
+D1 and actions stay authoritative. Every message, edit, delete, reaction,
+membership, or archive mutation atomically records a body-free conversation
+change. A client syncs changes using a durable keyset cursor; the room can only
+broadcast a tiny `messages_changed` hint which prompts that sync. Clients never
+trust a peer event body as a message record. Rooms offer no replay, have small
+payload/peer limits, and may duplicate or miss an event.
 
 An app worker is not an MVP dependency. If PAS later enables it for this app, it
 may publish trusted system hints; it still cannot turn rooms into a durable log.
@@ -64,13 +66,21 @@ may publish trusted system hints; it still cannot turn rooms into a durable log.
 ## Consistency and reliability
 
 - Each send supplies a UUID client nonce and is idempotent for its author.
-- A transaction writes the message, mention/reaction state, and audit/activity
-  records together.
+- A transaction writes the canonical change, its change-feed row, and
+  mention/reaction/audit records together.
 - Timeline reads use immutable keyset cursor fields, not browser time alone.
 - Edits and deletes create a visible state transition; deletes are tombstones,
   not ordinary hard deletes.
 - Rate limits, room outage, and network loss retain the local draft and expose
   retry/copy actions rather than silently losing authored content.
+
+## Realtime service envelope
+
+PAS rooms are a bounded best-effort enhancement, not a Slack-scale channel
+transport: a room supports at most 32 peers, 100 messages/second, 4 KB payloads,
+and no replay. Slackie must either cap active realtime viewers per conversation
+or use an approved alternative transport. Over-capacity viewers get an explicit
+refetch/polling degraded state; nobody is silently excluded.
 
 ## Attachment decision
 
