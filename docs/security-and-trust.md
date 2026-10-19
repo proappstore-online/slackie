@@ -23,6 +23,11 @@ enforce every row-level decision.
 | Forged room events | Declared SQL-authorized rooms; body-free peer hints; action refetch. |
 | Duplicate sends | Author-scoped client nonce and canonical action response. |
 | XSS | Plain text or strictly allowlisted markup; no raw HTML rendering. |
+| Browser injection | A restrictive Content Security Policy is defined before release; minimize sources, prohibit unsafe script execution, and test it against all supported flows. |
+| CSRF | Any server-rendered or cookie-authenticated form flow uses origin validation and CSRF protection; action-only flows document why the control is not applicable. |
+| Authentication/invite abuse | Login, recovery (if introduced), and invitation acceptance have per-identity and per-source rate limits with safe retry feedback. |
+| Secret compromise | Signing secrets, API keys, and integration tokens have an owner, least privilege, encrypted storage where applicable, rotation/revocation procedure, and no-log rule. |
+| Vulnerable dependency | Locked dependencies, automated vulnerability scanning, review/patch SLAs, and release-blocking treatment for critical exploitable findings. |
 | Abuse | Length limits, rate limits, reports, removal, auditable moderation. |
 | Log/telemetry disclosure | Record metadata only; exclude content, tokens, and signed URLs. |
 | Last-owner lockout | Conditional mutations and dedicated tests. |

@@ -5,8 +5,14 @@
 - Tenant-owned rows carry `workspace_id`; all reads and writes begin with an
   active workspace membership predicate.
 - IDs are opaque; client-supplied IDs/nonces are validated and idempotency-scoped.
+  An ADR must select the database-generated, time-sortable canonical ID scheme
+  before the first migration; a client retry nonce remains a distinct UUID.
+- Persist timestamps as UTC instants. Render them with the viewer's selected or
+  IANA time-zone preference; never persist a locale-formatted timestamp.
 - Migrations are additive only. Ordinary deletion is a state transition, not a
-  destructive database operation.
+  destructive database operation: messages are soft-deleted into policy-defined
+  tombstones and channels are archived. Hard purge is reserved for an approved
+  retention/deletion process and must preserve required audit evidence.
 - Private visibility is an authorization invariant, not a UI filter.
 
 ## V1 entities

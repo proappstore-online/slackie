@@ -21,7 +21,9 @@
   revocation rules.
 - [ ] **E9.6 Establish data governance.** Define retention for messages, edits,
   tombstones, profiles, reports, audit, backups, and future files; decide export,
-  deletion, legal-hold, and profile privacy boundaries.
+  deletion, legal-hold, hard-purge authority/evidence, and profile privacy
+  boundaries. These decisions govern E1 membership history, E2 channel archives,
+  and E3 message tombstones.
 
 ## Acceptance criteria
 

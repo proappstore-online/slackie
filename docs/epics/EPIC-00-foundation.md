@@ -15,7 +15,9 @@
 - [ ] **E0.4 Produce core journey map.** Cover create/join workspace, discover or
   join channel, send/retry, reply in thread, and access-denied recovery.
 - [ ] **E0.5 Write ADRs.** Record template-workspace choice, action-authoritative
-  data design, room-as-hint design, and attachment capability gap.
+  data design, room-as-hint design, attachment capability gap, canonical ID
+  scheme, UTC timestamp/time-zone rendering, and soft-delete versus hard-purge
+  lifecycle policy.
 
 ## Acceptance criteria
 

@@ -9,13 +9,18 @@
 - [ ] **E4.1 Declare protected room patterns.** Define channel room names and SQL
   join authorizer that verifies active workspace/channel access.
 - [ ] **E4.2 Define event envelope.** Keep peer event to event kind/resource ID;
-  prohibit message body, attachment bytes, and authorization claims.
+  prohibit message body, attachment bytes (blocked by E8), and authorization
+  claims.
 - [ ] **E4.3 Implement refetch reconciliation.** On hint, focus, reconnect, and
   mismatch, fetch newest authorized timeline slice with keyset cursor.
-- [ ] **E4.4 Design connection states.** Connecting, live, degraded, disconnected,
-  retry backoff, and accessible status copy.
-- [ ] **E4.5 Load/abuse test room boundary.** Respect platform peer, rate, payload,
-  and no-replay limits; ensure noisy activity does not corrupt timeline state.
+- [ ] **E4.4 Design connection and capacity states.** Connecting, live, degraded,
+  disconnected, retry backoff, and accessible status copy; state when updates
+  are polling/refetching because the active view exceeds the room envelope, what
+  remains available, and that posting never depends on a room connection.
+- [ ] **E4.5 Load/abuse test room boundary.** PAS rooms allow at most 32 peers,
+  100 messages/second, and 4 KB payloads and have no replay. Validate that these
+  limits select the E10 polling/refetch path rather than exclude users or corrupt
+  the canonical body-free change-feed timeline.
 - [ ] **E4.6 Decide worker use later.** Re-evaluate only if PAS enables a
   production worker; document why it is not a delivery guarantee.
 

@@ -7,7 +7,8 @@
 ## Tasks
 
 - [ ] **E1.1 Model workspaces and memberships.** Define additive migration and
-  action schemas for workspace, member profile, role, status, and audit records.
+  action schemas for workspace, member profile, role, status, and audit records;
+  apply the lifecycle and governance decisions in E9.
 - [ ] **E1.2 Design workspace creation and initial ownership.** Seed only the
   minimal onboarding state and protect ownership transfer.
 - [ ] **E1.3 Design invitation lifecycle.** Cover create, expiry, revoke, accept,

@@ -7,7 +7,8 @@
 ## Tasks
 
 - [ ] **E2.1 Define channel entity and lifecycle.** Public/private type, unique
-  name, topic, description, archival, rename, and creator policy.
+  name, topic, description, archival rather than ordinary deletion, rename, and
+  creator policy; align retention and hard-purge exceptions with E9.
 - [ ] **E2.2 Specify membership policy.** Join/leave public channels; invite,
   remove, and recover private channel membership; decide channel-manager role.
 - [ ] **E2.3 Design channel list and discovery.** Detail public discovery and the

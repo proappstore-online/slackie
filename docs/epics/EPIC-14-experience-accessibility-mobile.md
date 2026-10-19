@@ -6,12 +6,15 @@
 
 ## Tasks
 
-- [ ] **E14.1 Establish visual system.** Tokens, typography, spacing, contrast,
-  focus, motion, density, responsive breakpoints, and component states.
+- [ ] **E14.1 Establish visual system.** Meet WCAG 2.1 AA; define tokens,
+  typography, spacing, contrast, visible focus, motion, density, responsive
+  breakpoints, component states, `prefers-reduced-motion`,
+  `prefers-color-scheme`, and high-contrast/forced-colors treatment.
 - [ ] **E14.2 Finalize desktop and mobile IA.** Desktop sidebar/panes, mobile
   Home/Activity/DMs/Search/You, navigation restoration, and deep links.
 - [ ] **E14.3 Define keyboard and command palette.** Shortcut inventory,
   discoverability, conflicts, menus, dialogs, composer, thread, and search tests.
+  Specify dialog focus placement/trapping and focus restoration on close.
 - [ ] **E14.4 Specify live-region behavior.** Bounded new-message announcements
   that preserve focus, reduced motion, high contrast, zoom/reflow, and touch targets.
 - [ ] **E14.5 Localize deliberately.** String externalization, locale/time-zone
@@ -21,6 +24,7 @@
 
 ## Acceptance criteria
 
-- Every P0 journey is keyboard-only and screen-reader tested at 200–400% zoom.
+- Every P0 journey is keyboard-only and screen-reader tested with NVDA and
+  VoiceOver at 200–400% zoom.
 - Mobile behavior is designed independently rather than shrinking the desktop shell.
 - No private/external/guest condition relies on colour alone.

@@ -18,6 +18,11 @@
   privileged action audit, incident data, and retention boundaries.
 - [ ] **E5.6 Create QA suites.** Unit/action negative tests plus E2E paths for
   auth, invitations, private access refusal, messaging, reconnect, and sign-out.
+- [ ] **E5.7 Define web and supply-chain security gates.** Enforce and test CSP;
+  require CSRF/origin protection for any server-rendered or cookie-authenticated
+  form; rate-limit login, recovery, and invite acceptance; assign secret/API-key
+  rotation and revocation ownership; and scan locked dependencies with patch and
+  release-blocking criteria.
 
 ## Acceptance criteria
 
