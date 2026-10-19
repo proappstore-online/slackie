@@ -10,7 +10,8 @@ teams' needs.
 ## Target users
 
 - Workspace owners creating an internal home for a team of roughly 3–100 people.
-- Members discussing work in topic-based channels and private direct messages.
+- Members discussing work in topic-based channels, with private direct messages
+  as a separately approved post-MVP capability.
 - Moderators maintaining a respectful, secure workspace without reading ordinary
   private conversations by default.
 

@@ -1,7 +1,8 @@
 # E17 — Organization scale, enterprise controls, and AI
 
 **Priority:** P3
-**Depends on:** Mature E9–E16
+**Depends on:** Mature E9–E16, except blocked E8; any enterprise surface that
+uses shared attachments additionally depends on E8 being unblocked.
 **Goal:** Prevent enterprise claims before the necessary technical and policy foundation exists.
 
 ## Tasks

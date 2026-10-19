@@ -20,7 +20,7 @@
 | Entity | Essential fields | Notes |
 | --- | --- | --- |
 | `workspaces` | id, slug, name, created_by, archived_at | Tenant boundary. |
-| `workspace_members` | workspace_id, user_id, display_name, avatar_url, role, status, joined_at | Composite primary key; role is owner/admin/member/guest when defined. |
+| `workspace_members` | workspace_id, user_id, display_name, avatar_url, role, is_primary_owner, status, joined_at | Composite primary key; role is owner/admin/member/guest when defined; exactly one active member has `is_primary_owner`. |
 | `workspace_invites` | id, workspace_id, role, invited_by, expires_at, accepted_at, revoked_at | Single-use and revocable. |
 | `conversations` | id, workspace_id, kind, lifecycle, created_by, last_change_cursor | Chosen before migration; kind is public/private channel, DM, or group DM. |
 | `conversation_members` | conversation_id, user_id, role, joined_at, left_at, history_baseline | Required for private channels and every DM. |
@@ -54,7 +54,9 @@ Message ──< reactions / reports
 3. Workspace ownership does not automatically grant private-conversation reading.
 4. A reply inherits exactly the visibility of its root channel.
 5. The last active owner cannot leave, be removed, or be demoted.
-6. A tombstoned message never exposes its prior body through a normal query.
+6. Exactly one active workspace member is the primary owner; a conditional
+   ownership transfer preserves that invariant.
+7. A tombstoned message never exposes its prior body through a normal query.
 
 ## Index plan
 

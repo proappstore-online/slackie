@@ -8,14 +8,14 @@ workspace/channel list and a full-screen conversation.
 
 ```text
 Workspace
-├── Home: activity, mentions, unread threads
+├── Home: activity, mentions, unread threads (attention design in E11)
 ├── Channels
 │   ├── public channels available to the member
 │   └── private channels the member belongs to
-├── Direct messages
+├── Direct messages (post-MVP; E11)
 │   ├── one-to-one
 │   └── group conversations
-├── Later: saved items
+├── Later: saved items (post-MVP; E11)
 └── Workspace administration (owners/admins only)
 ```
 

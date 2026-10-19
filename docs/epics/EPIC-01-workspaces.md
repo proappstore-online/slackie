@@ -8,7 +8,9 @@
 
 - [ ] **E1.1 Model workspaces and memberships.** Define additive migration and
   action schemas for workspace, member profile, role, status, and audit records;
-  apply the lifecycle and governance decisions in E9.
+  incorporate E9 lifecycle and governance decisions as they are resolved. E1
+  may design its core boundary after E0, but cannot be declared production-ready
+  until the E9 governance gate is closed.
 - [ ] **E1.2 Design workspace creation and initial ownership.** Seed only the
   minimal onboarding state and protect ownership transfer.
 - [ ] **E1.3 Design invitation lifecycle.** Cover create, expiry, revoke, accept,
@@ -26,3 +28,5 @@
   ID from another workspace.
 - A workspace cannot end with zero active owners.
 - Invitation commands are one-time, expiring, revocable, and fully auditable.
+- E1 is not production-ready until E9 has approved ownership, membership
+  lifecycle, invitation, and retention/governance decisions.

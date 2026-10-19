@@ -1,28 +1,32 @@
 # E7 — Post-MVP collaboration capabilities
 
 **Priority:** P2
-**Depends on:** Validated v1
-**Goal:** Expand only with independent product and platform decisions.
+**Depends on:** E6 validated v1; each owning epic's dependencies
+**Goal:** Route post-MVP proposals to their owning epics only after independent
+product and platform decisions; this umbrella does not duplicate those specs or
+block their separately sequenced design work.
 
 ## Tasks
 
-- [ ] **E7.1 Direct messages and group DMs.** Decide generic conversation model,
-  group limit, membership change/leave policy, blocking/reporting, and notification
-  semantics.
-- [ ] **E7.2 Search and retrieval.** Design authorized indexing, filters, result
-  context, deletion/retention behavior, and relevance validation.
-- [ ] **E7.3 Notifications and presence.** Define attention policy, mute, mentions,
-  browser push, online/away/DND, and graceful delivery failure.
-- [ ] **E7.4 Saved items and resources.** Define personal-only saves, pins, and
-  channel resources without making shared taxonomy user-specific.
-- [ ] **E7.5 Integrations/bots/workflows.** Define consent, scopes, bot identity,
-  rate limits, audit, and marketplace/governance boundaries.
-- [ ] **E7.6 Huddles/canvas/tasks.** Make separate build/partner/defer decisions;
-  do not implicitly become a video or document suite.
-- [ ] **E7.7 External/enterprise collaboration.** Address guests, shared channels,
-  SSO/SCIM, export, retention, and legal/compliance as separate programs.
+- [ ] **E7.1 Route direct messages and group DMs to E11.** E11 owns the generic
+  conversation model, group limit, membership changes, blocking/reporting, and
+  notification semantics.
+- [ ] **E7.2 Route search and retrieval to E12.** E12 owns authorized indexing,
+  filters, result context, deletion/retention behavior, and relevance validation.
+- [ ] **E7.3 Route notifications, presence, and personal triage to E11.** E11
+  owns attention policy, mute, mentions, push, presence/typing deferral, saved
+  items, and delivery failure behavior.
+- [ ] **E7.4 Route integrations, bots, and workflows to E15.** E15 owns consent,
+  scopes, bot identity, rate limits, audit, and marketplace boundaries.
+- [ ] **E7.5 Route canvases, huddles, and tasks to E16.** E16 owns the separate
+  build/partner/defer decision and must not turn Slackie implicitly into a video
+  or document suite.
+- [ ] **E7.6 Route guests to E9 and external/enterprise collaboration to E17.**
+  E9 owns the guest policy; E17 owns shared channels, SSO/SCIM, retention, and
+  legal/compliance as enterprise programs.
 
 ## Acceptance criteria
 
-- Each capability has a standalone value case, permission model, threat model,
-  cost/reliability analysis, and explicit MVP exclusion until approved.
+- Each proposal is routed to one owning epic with a standalone value case,
+  permission model, threat model, cost/reliability analysis, and explicit MVP
+  exclusion until approved.

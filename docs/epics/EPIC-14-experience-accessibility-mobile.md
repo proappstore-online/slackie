@@ -10,8 +10,11 @@
   typography, spacing, contrast, visible focus, motion, density, responsive
   breakpoints, component states, `prefers-reduced-motion`,
   `prefers-color-scheme`, and high-contrast/forced-colors treatment.
-- [ ] **E14.2 Finalize desktop and mobile IA.** Desktop sidebar/panes, mobile
-  Home/Activity/DMs/Search/You, navigation restoration, and deep links.
+- [ ] **E14.2 Finalize desktop and mobile IA.** Specify the MVP desktop
+  sidebar/panes and mobile channel/workspace navigation, restoration, and deep
+  links. DMs (E11), full search (E12), and personal triage/"You" (E11) may be
+  designed as future navigation states, but must not appear available in an MVP
+  release before their owning epic is approved.
 - [ ] **E14.3 Define keyboard and command palette.** Shortcut inventory,
   discoverability, conflicts, menus, dialogs, composer, thread, and search tests.
   Specify dialog focus placement/trapping and focus restoration on close.

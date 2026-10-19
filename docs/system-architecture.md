@@ -50,7 +50,7 @@ specific channel/DM visibility predicate.
 
 Rooms are declared and individually authorized. For example, `channel:*` is
 permitted only by a SQL authorizer that proves active workspace membership and
-either public-channel access or an explicit `channel_members` row. The platform
+either public-channel access or an explicit `conversation_members` row. The platform
 rechecks socket authorization; denied access must fail closed.
 
 D1 and actions stay authoritative. Every message, edit, delete, reaction,

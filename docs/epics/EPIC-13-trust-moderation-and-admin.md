@@ -16,11 +16,16 @@
   domain policy, rate-limit insights, settings, and destructive confirmation.
 - [ ] **E13.5 Design subject requests.** Account deactivation/deletion, export
   authority, approval, expiry/download logging, and legal-hold precedence.
-- [ ] **E13.6 Produce incident runbooks.** Data access incident, abuse wave,
-  account compromise, malware/file future, and realtime outage.
+- [ ] **E13.6 Produce incident runbooks.** Cover data access incident, abuse wave,
+  account compromise, malware/file future, and realtime outage. The account-
+  compromise runbook must state that PAS offers no app-visible global browser-
+  session inventory or revocation; list supported local sign-out, credential-
+  containment, and escalation steps instead of claiming unavailable control.
 
 ## Acceptance criteria
 
 - Reporter identity never reaches the reported person.
 - Any exceptional private-content review is policy-gated and audited.
 - Audit records omit bodies, emails, secrets, signed URLs, and attachment bytes.
+- Account-compromise operations do not claim app-level session inventory or
+  global session revocation that PAS does not provide.
