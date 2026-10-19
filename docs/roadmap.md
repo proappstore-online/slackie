@@ -12,7 +12,7 @@
 
 ## Decision gates before code
 
-1. Confirm whether Slackie is multi-workspace SaaS or a single-workspace product.
+1. Multi-workspace tenancy — **Resolved**: see [ADR-005](adr/ADR-005-multi-workspace-tenancy.md).
 2. Confirm one primary owner, optional owner/admin/member matrix, and
    private-review policy. Guest access is unavailable until its scoped lifecycle
    and discovery rules are designed.

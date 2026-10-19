@@ -3,7 +3,7 @@
 ## Modeling rules
 
 - Tenant-owned rows carry `workspace_id`; all reads and writes begin with an
-  active workspace membership predicate.
+  active workspace membership predicate ([ADR-005](adr/ADR-005-multi-workspace-tenancy.md)).
 - IDs are opaque; client-supplied IDs/nonces are validated and idempotency-scoped.
   An ADR must select the database-generated, time-sortable canonical ID scheme
   before the first migration; a client retry nonce remains a distinct UUID.

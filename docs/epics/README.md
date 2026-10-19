@@ -4,6 +4,9 @@ These are design-phase issues, deliberately expressed as build-ready problem
 statements rather than implementation work already under way. A task is ready
 when its dependencies are resolved and acceptance criteria are demonstrably met.
 
+Tenancy gate E0.2 is resolved: multi-workspace tenancy is adopted
+([ADR-005](../adr/ADR-005-multi-workspace-tenancy.md)); other E0 decisions remain open.
+
 | ID | Epic | Priority | Dependencies |
 | --- | --- | --- | --- |
 | [E0](EPIC-00-foundation.md) | Product, tenancy, and decision foundation | P0 | None |

@@ -23,6 +23,8 @@ that only intended participants can see it.
 
 ## MVP scope
 
+Slackie supports multiple independent workspaces; each workspace is a fully isolated tenant ([ADR-005](adr/ADR-005-multi-workspace-tenancy.md)).
+
 1. Create and administer a workspace.
 2. Invite or remove members and assign the approved primary-owner, owner,
    administrator, or member role. Guest access remains a separately designed phase.

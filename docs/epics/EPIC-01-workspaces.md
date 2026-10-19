@@ -4,6 +4,9 @@
 **Depends on:** E0
 **Goal:** Build a safe tenant boundary with clear membership lifecycle.
 
+Slackie is multi-workspace; each workspace is an isolated tenant
+([ADR-005](../adr/ADR-005-multi-workspace-tenancy.md)).
+
 ## Tasks
 
 - [ ] **E1.1 Model workspaces and memberships.** Define additive migration and

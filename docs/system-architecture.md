@@ -2,7 +2,8 @@
 
 ## Proposed PAS shape
 
-Slackie is a tenant-aware single-page application backed by ProAppStore services.
+Slackie is a multi-workspace single-page application backed by ProAppStore services;
+each workspace is an isolated tenant ([ADR-005](adr/ADR-005-multi-workspace-tenancy.md)).
 The browser owns presentation and optimistic interaction; authorization and every
 durable state change remain server-enforced.
 

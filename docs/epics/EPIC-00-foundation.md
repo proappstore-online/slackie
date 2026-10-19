@@ -8,8 +8,9 @@
 - [ ] **E0.1 Define ICP, jobs, and differentiation.** State target team size,
   primary jobs, alternatives, and three reasons to choose Slackie without making
   Slack-parity claims.
-- [ ] **E0.2 Decide tenancy.** Select multi-workspace SaaS or single-workspace
-  deployment; document routing, onboarding, and support implications.
+- [x] **E0.2 Decide tenancy.** Resolved: multi-workspace tenancy adopted —
+  see [ADR-005](../adr/ADR-005-multi-workspace-tenancy.md). Routing, onboarding,
+  and support implications follow the adopted multi-workspace model.
 - [ ] **E0.3 Approve roles and privacy boundary.** Ratify owner/admin/member/guest
   capabilities and whether any exceptional private-content review is permitted.
 - [ ] **E0.4 Produce core journey map.** Cover create/join workspace, discover or
@@ -21,6 +22,7 @@
 
 ## Acceptance criteria
 
+- ✅ Resolved: multi-workspace tenancy — ADR-005 accepted.
 - Scope, non-goals, metrics, and decisions in docs have a named owner.
 - Every P0 surface maps to an authorized user journey and a specific entity.
 - No document promises huddles, integrations, shared uploads, or enterprise
