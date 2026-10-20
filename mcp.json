@@ -7,7 +7,7 @@
       "statements": [
         "INSERT OR IGNORE INTO workspaces(id,name,slug,created_by,created_at) SELECT :workspace_id, :name, :slug, :__user_id, :__now WHERE length(:workspace_id) BETWEEN 1 AND 128 AND length(trim(:name)) BETWEEN 1 AND 100 AND length(:slug) BETWEEN 1 AND 80 AND :slug NOT GLOB '*[^a-z0-9-]*'",
         "INSERT OR IGNORE INTO workspace_members(workspace_id,user_id,role,joined_at) SELECT id,:__user_id,'owner',:__now FROM workspaces WHERE id = :workspace_id AND created_by = :__user_id AND created_at = :__now AND changes() > 0",
-        "INSERT INTO activity_log (id, workspace_id, actor_id, entity_type, action, entity_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'workspace', 'workspace_create', :workspace_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'workspace_create', :workspace_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
       ],
       "params": {
         "workspace_id": {
@@ -52,7 +52,7 @@
       "operation": "batch",
       "statements": [
         "INSERT OR IGNORE INTO workspace_members(workspace_id,user_id,role,joined_at) SELECT :workspace_id,:user_id,:role,:__now WHERE EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin')) AND (:role = 'member' OR (:role = 'admin' AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role = 'owner'))) AND length(:user_id) BETWEEN 1 AND 128",
-        "INSERT INTO activity_log (id, workspace_id, actor_id, entity_type, action, entity_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'member', 'workspace_member_add', :user_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'workspace_member_add', :user_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
       ],
       "params": {
         "workspace_id": {
@@ -77,7 +77,7 @@
       "operation": "batch",
       "statements": [
         "DELETE FROM workspace_members WHERE workspace_id = :workspace_id AND user_id = :user_id AND user_id != :__user_id AND role != 'owner' AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin')) AND (role = 'member' OR EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role = 'owner'))",
-        "INSERT INTO activity_log (id, workspace_id, actor_id, entity_type, action, entity_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'member', 'workspace_member_remove', :user_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'workspace_member_remove', :user_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
       ],
       "params": {
         "workspace_id": {
@@ -97,7 +97,7 @@
       "operation": "batch",
       "statements": [
         "UPDATE workspace_members SET role = :role WHERE workspace_id = :workspace_id AND user_id = :user_id AND role != 'owner' AND role != :role AND :role IN ('admin','member') AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role = 'owner')",
-        "INSERT INTO activity_log (id, workspace_id, actor_id, entity_type, action, entity_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'member', 'workspace_member_role_set', :user_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'workspace_member_role_set', :user_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
       ],
       "params": {
         "workspace_id": {
@@ -122,7 +122,7 @@
       "statements": [
         "INSERT OR IGNORE INTO channels(id,workspace_id,name,description,is_private,created_by,created_at) SELECT :channel_id,:workspace_id,:name,:description,:is_private,:__user_id,:__now WHERE EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin')) AND length(:channel_id) BETWEEN 1 AND 128 AND length(trim(:name)) BETWEEN 1 AND 80 AND length(:description) <= 1000 AND :is_private IN (0,1)",
         "INSERT OR IGNORE INTO channel_members(channel_id,user_id,workspace_id,joined_at) SELECT id,:__user_id,workspace_id,:__now FROM channels WHERE id = :channel_id AND workspace_id = :workspace_id AND created_by = :__user_id AND created_at = :__now AND changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)",
-        "INSERT INTO activity_log (id, workspace_id, actor_id, entity_type, action, entity_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'channel', 'channel_create', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'channel_create', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
       ],
       "params": {
         "workspace_id": {
@@ -154,7 +154,7 @@
       "name": "channel_get",
       "description": "channel get",
       "operation": "query",
-      "sql": "SELECT c.id,c.workspace_id,c.name,c.description,c.is_private,c.created_by,c.created_at,c.is_archived,EXISTS (SELECT 1 FROM channel_members mine WHERE mine.workspace_id = c.workspace_id AND mine.channel_id = c.id AND mine.user_id = :__user_id) AS is_member FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND (c.is_private = 0 OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = c.workspace_id AND cm.channel_id = c.id AND cm.user_id = :__user_id)) LIMIT 1",
+      "sql": "SELECT c.id,c.workspace_id,c.name,c.description,c.is_private,c.created_by,c.created_at,c.is_archived,c.topic,c.archived_at,EXISTS (SELECT 1 FROM channel_members mine WHERE mine.workspace_id = c.workspace_id AND mine.channel_id = c.id AND mine.user_id = :__user_id) AS is_member,(c.name != 'general' AND EXISTS (SELECT 1 FROM channel_members other JOIN channels available ON available.id = other.channel_id AND available.workspace_id = other.workspace_id WHERE other.workspace_id = c.workspace_id AND other.user_id = :__user_id AND other.channel_id != c.id AND available.is_archived = 0)) AS can_leave FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND (c.is_private = 0 OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = c.workspace_id AND cm.channel_id = c.id AND cm.user_id = :__user_id)) LIMIT 1",
       "params": {
         "workspace_id": {
           "type": "string",
@@ -171,7 +171,7 @@
       "name": "channel_list",
       "description": "channel list",
       "operation": "query",
-      "sql": "SELECT c.id,c.workspace_id,c.name,c.description,c.is_private,c.created_by,c.created_at,c.is_archived,EXISTS (SELECT 1 FROM channel_members mine WHERE mine.workspace_id = c.workspace_id AND mine.channel_id = c.id AND mine.user_id = :__user_id) AS is_member FROM channels c WHERE c.workspace_id = :workspace_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND (c.is_private = 0 OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = c.workspace_id AND cm.channel_id = c.id AND cm.user_id = :__user_id)) ORDER BY c.name,c.id LIMIT 100",
+      "sql": "SELECT c.id,c.workspace_id,c.name,c.description,c.is_private,c.created_by,c.created_at,c.is_archived,c.topic,c.archived_at,EXISTS (SELECT 1 FROM channel_members mine WHERE mine.workspace_id = c.workspace_id AND mine.channel_id = c.id AND mine.user_id = :__user_id) AS is_member,(c.name != 'general' AND EXISTS (SELECT 1 FROM channel_members other JOIN channels available ON available.id = other.channel_id AND available.workspace_id = other.workspace_id WHERE other.workspace_id = c.workspace_id AND other.user_id = :__user_id AND other.channel_id != c.id AND available.is_archived = 0)) AS can_leave FROM channels c WHERE c.workspace_id = :workspace_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND (c.is_private = 0 OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = c.workspace_id AND cm.channel_id = c.id AND cm.user_id = :__user_id)) ORDER BY c.name,c.id LIMIT 100",
       "params": {
         "workspace_id": {
           "type": "string",
@@ -186,7 +186,7 @@
       "operation": "batch",
       "statements": [
         "INSERT OR IGNORE INTO channel_members(channel_id,user_id,workspace_id,joined_at) SELECT c.id,:__user_id,c.workspace_id,:__now FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id AND c.is_archived = 0 AND c.is_private = 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)",
-        "INSERT INTO activity_log (id, workspace_id, actor_id, entity_type, action, entity_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'channel', 'channel_join', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'channel_join', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
       ],
       "params": {
         "workspace_id": {
@@ -205,8 +205,8 @@
       "description": "channel leave. Refused writes change zero rows; audit contains no message body.",
       "operation": "batch",
       "statements": [
-        "DELETE FROM channel_members WHERE workspace_id = :workspace_id AND channel_id = :channel_id AND user_id = :__user_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)",
-        "INSERT INTO activity_log (id, workspace_id, actor_id, entity_type, action, entity_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'channel', 'channel_leave', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+        "DELETE FROM channel_members WHERE workspace_id = :workspace_id AND channel_id = :channel_id AND user_id = :__user_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.id = :channel_id AND c.workspace_id = :workspace_id AND c.name != 'general' AND EXISTS (SELECT 1 FROM channel_members other JOIN channels available ON available.id = other.channel_id AND available.workspace_id = other.workspace_id WHERE other.workspace_id = c.workspace_id AND other.user_id = :__user_id AND other.channel_id != c.id AND available.is_archived = 0))",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'channel_leave', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
       ],
       "params": {
         "workspace_id": {
@@ -226,7 +226,7 @@
       "operation": "batch",
       "statements": [
         "INSERT OR IGNORE INTO channel_members(channel_id,user_id,workspace_id,joined_at) SELECT c.id,:user_id,c.workspace_id,:__now FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id AND c.is_archived = 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin')) AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND (c.is_private = 0 OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = c.workspace_id AND cm.channel_id = c.id AND cm.user_id = :__user_id)) AND EXISTS (SELECT 1 FROM workspace_members target WHERE target.workspace_id = :workspace_id AND target.user_id = :user_id)",
-        "INSERT INTO activity_log (id, workspace_id, actor_id, entity_type, action, entity_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'channel', 'channel_member_add', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'channel_member_add', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
       ],
       "params": {
         "workspace_id": {
@@ -250,7 +250,7 @@
       "operation": "batch",
       "statements": [
         "INSERT OR IGNORE INTO messages(id,channel_id,workspace_id,user_id,body,created_at,updated_at) SELECT :message_id,:channel_id,:workspace_id,:__user_id,:body,:__now,:__now WHERE EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id AND c.is_archived = 0) AND length(trim(:body)) BETWEEN 1 AND 10000 AND length(:body) <= 10000 AND length(:message_id) BETWEEN 1 AND 128",
-        "INSERT INTO activity_log (id, workspace_id, actor_id, entity_type, action, entity_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'message', 'message_send', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'message_send', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
       ],
       "params": {
         "workspace_id": {
@@ -277,8 +277,8 @@
       "description": "message edit. Refused writes change zero rows; audit contains no message body.",
       "operation": "batch",
       "statements": [
-        "UPDATE messages SET body = :body,updated_at = :__now,edited_at = :__now WHERE id = :message_id AND workspace_id = :workspace_id AND channel_id = :channel_id AND user_id = :__user_id AND deleted_at IS NULL AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id AND c.is_archived = 0) AND length(trim(:body)) BETWEEN 1 AND 10000 AND length(:body) <= 10000 AND body != :body",
-        "INSERT INTO activity_log (id, workspace_id, actor_id, entity_type, action, entity_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'message', 'message_edit', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+        "UPDATE messages SET body = :body,updated_at = :__now,edited_at = :__now WHERE id = :message_id AND workspace_id = :workspace_id AND channel_id = :channel_id AND user_id = :__user_id AND deleted_at IS NULL AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id AND c.is_archived = 0) AND length(trim(:body)) BETWEEN 1 AND 10000 AND length(:body) <= 10000 AND body != :body AND created_at >= :__now - 86400000",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'message_edit', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
       ],
       "params": {
         "workspace_id": {
@@ -306,7 +306,7 @@
       "operation": "batch",
       "statements": [
         "UPDATE messages SET body = '',is_deleted = 1,updated_at = :__now,deleted_at = :__now WHERE id = :message_id AND workspace_id = :workspace_id AND channel_id = :channel_id AND deleted_at IS NULL AND (user_id = :__user_id OR EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin'))) AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id)",
-        "INSERT INTO activity_log (id, workspace_id, actor_id, entity_type, action, entity_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'message', 'message_delete', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'message_delete', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
       ],
       "params": {
         "workspace_id": {
@@ -357,7 +357,7 @@
       "operation": "batch",
       "statements": [
         "INSERT OR IGNORE INTO message_reactions(message_id,channel_id,user_id,emoji,workspace_id,created_at) SELECT id,channel_id,:__user_id,:emoji,:workspace_id,:__now FROM messages WHERE id = :message_id AND channel_id = :channel_id AND workspace_id = :workspace_id AND deleted_at IS NULL AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id AND c.is_archived = 0) AND length(:emoji) BETWEEN 1 AND 32",
-        "INSERT INTO activity_log (id, workspace_id, actor_id, entity_type, action, entity_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'message', 'reaction_add', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'reaction_add', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
       ],
       "params": {
         "workspace_id": {
@@ -385,7 +385,7 @@
       "operation": "batch",
       "statements": [
         "DELETE FROM message_reactions WHERE channel_id = :channel_id AND workspace_id = :workspace_id AND message_id = :message_id AND user_id = :__user_id AND emoji = :emoji AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id) AND EXISTS (SELECT 1 FROM messages m WHERE m.id = :message_id AND m.channel_id = :channel_id AND m.workspace_id = :workspace_id)",
-        "INSERT INTO activity_log (id, workspace_id, actor_id, entity_type, action, entity_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'message', 'reaction_remove', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'reaction_remove', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
       ],
       "params": {
         "workspace_id": {
@@ -413,7 +413,7 @@
       "operation": "batch",
       "statements": [
         "UPDATE channel_members SET last_read_at = :__now WHERE workspace_id = :workspace_id AND channel_id = :channel_id AND user_id = :__user_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND (last_read_at IS NULL OR last_read_at < :__now)",
-        "INSERT INTO activity_log (id, workspace_id, actor_id, entity_type, action, entity_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'channel', 'channel_mark_read', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'channel_mark_read', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
       ],
       "params": {
         "workspace_id": {
@@ -426,6 +426,485 @@
         }
       },
       "requires_auth": true
+    },
+    {
+      "name": "create_channel",
+      "description": "create channel",
+      "operation": "batch",
+      "statements": [
+        "INSERT OR IGNORE INTO channels(id,workspace_id,name,description,is_private,created_by,created_at) SELECT :channel_id,:workspace_id,:name,:description,:is_private,:__user_id,:__now WHERE EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin')) AND length(:channel_id) BETWEEN 1 AND 128 AND length(trim(:name)) BETWEEN 1 AND 80 AND length(:description) <= 1000 AND :is_private IN (0,1)",
+        "INSERT OR IGNORE INTO channel_members(channel_id,user_id,workspace_id,joined_at) SELECT id,:__user_id,workspace_id,:__now FROM channels WHERE id = :channel_id AND workspace_id = :workspace_id AND created_by = :__user_id AND created_at = :__now AND changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'create_channel', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "name": {
+          "type": "string",
+          "description": "Channel name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Channel description",
+          "default": ""
+        },
+        "is_private": {
+          "type": "integer",
+          "description": "0 public, 1 private",
+          "default": 0
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "get_channels",
+      "description": "get channels",
+      "operation": "query",
+      "sql": "SELECT c.id,c.workspace_id,c.name,c.description,c.is_private,c.created_by,c.created_at,c.is_archived,c.topic,c.archived_at,EXISTS (SELECT 1 FROM channel_members mine WHERE mine.workspace_id = c.workspace_id AND mine.channel_id = c.id AND mine.user_id = :__user_id) AS is_member,(c.name != 'general' AND EXISTS (SELECT 1 FROM channel_members other JOIN channels available ON available.id = other.channel_id AND available.workspace_id = other.workspace_id WHERE other.workspace_id = c.workspace_id AND other.user_id = :__user_id AND other.channel_id != c.id AND available.is_archived = 0)) AS can_leave FROM channels c WHERE c.workspace_id = :workspace_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND (c.is_private = 0 OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = c.workspace_id AND cm.channel_id = c.id AND cm.user_id = :__user_id)) ORDER BY c.name,c.id LIMIT 100",
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "join_channel",
+      "description": "join channel",
+      "operation": "batch",
+      "statements": [
+        "INSERT OR IGNORE INTO channel_members(channel_id,user_id,workspace_id,joined_at) SELECT c.id,:__user_id,c.workspace_id,:__now FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id AND c.is_archived = 0 AND c.is_private = 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'join_channel', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "leave_channel",
+      "description": "leave channel",
+      "operation": "batch",
+      "statements": [
+        "DELETE FROM channel_members WHERE workspace_id = :workspace_id AND channel_id = :channel_id AND user_id = :__user_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.id = :channel_id AND c.workspace_id = :workspace_id AND c.name != 'general' AND EXISTS (SELECT 1 FROM channel_members other JOIN channels available ON available.id = other.channel_id AND available.workspace_id = other.workspace_id WHERE other.workspace_id = c.workspace_id AND other.user_id = :__user_id AND other.channel_id != c.id AND available.is_archived = 0))",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'leave_channel', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "update_channel",
+      "description": "update channel. SQL authorization; zero changes means refused/no-op.",
+      "operation": "batch",
+      "statements": [
+        "UPDATE channels AS c SET name = :name,topic = :topic,description = :description WHERE c.id = :channel_id AND c.workspace_id = :workspace_id AND c.is_archived = 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin')) AND (c.is_private = 0 OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id)) AND length(trim(:name)) BETWEEN 1 AND 80 AND length(:topic) <= 250 AND length(:description) <= 1000 AND (c.name != :name OR c.topic != :topic OR c.description != :description)",
+        "INSERT INTO audit_log(id,workspace_id,actor_id,action,target_id,created_at) SELECT :__uuid,:workspace_id,:__user_id,'update_channel',:channel_id,:__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id, always reauthorized against caller membership"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name"
+        },
+        "topic": {
+          "type": "string",
+          "description": "Topic",
+          "default": ""
+        },
+        "description": {
+          "type": "string",
+          "description": "Description",
+          "default": ""
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "archive_channel",
+      "description": "archive channel. SQL authorization; zero changes means refused/no-op.",
+      "operation": "batch",
+      "statements": [
+        "UPDATE channels AS c SET is_archived = 1,archived_at = :__now WHERE c.id = :channel_id AND c.workspace_id = :workspace_id AND c.is_archived = 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin')) AND (c.is_private = 0 OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id))",
+        "INSERT INTO audit_log(id,workspace_id,actor_id,action,target_id,created_at) SELECT :__uuid,:workspace_id,:__user_id,'archive_channel',:channel_id,:__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id, always reauthorized against caller membership"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "get_channel_members",
+      "description": "get channel members",
+      "operation": "query",
+      "sql": "SELECT wm.user_id,COALESCE(NULLIF(wm.display_name,''),wm.user_id) AS display_name,wm.role,cm.joined_at FROM channel_members cm JOIN workspace_members wm ON wm.workspace_id = cm.workspace_id AND wm.user_id = cm.user_id JOIN channels c ON c.id = cm.channel_id AND c.workspace_id = cm.workspace_id WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND (c.is_private = 0 OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id)) AND (EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin')) OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id)) ORDER BY cm.joined_at,wm.user_id LIMIT 500",
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id, always reauthorized against caller membership"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "invite_to_channel",
+      "description": "invite to channel. SQL authorization; zero changes means refused/no-op.",
+      "operation": "batch",
+      "statements": [
+        "INSERT OR IGNORE INTO channel_members(channel_id,workspace_id,user_id,joined_at) SELECT c.id,c.workspace_id,:user_id,:__now FROM channels c WHERE c.id = :channel_id AND c.workspace_id = :workspace_id AND c.is_archived = 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND (c.is_private = 0 OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id)) AND (EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin')) OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id)) AND EXISTS (SELECT 1 FROM workspace_members target WHERE target.workspace_id = :workspace_id AND target.user_id = :user_id)",
+        "INSERT INTO audit_log(id,workspace_id,actor_id,action,target_id,created_at) SELECT :__uuid,:workspace_id,:__user_id,'invite_to_channel',:channel_id,:__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id, always reauthorized against caller membership"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "user_id": {
+          "type": "string",
+          "description": "Existing workspace member to invite"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "send_message",
+      "description": "send message",
+      "operation": "batch",
+      "statements": [
+        "INSERT OR IGNORE INTO messages(id,channel_id,workspace_id,user_id,body,created_at,updated_at) SELECT :message_id,:channel_id,:workspace_id,:__user_id,:content,:__now,:__now WHERE EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id AND c.is_archived = 0) AND length(trim(:content)) BETWEEN 1 AND 10000 AND length(:content) <= 10000 AND length(:message_id) BETWEEN 1 AND 128",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'send_message', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "message_id": {
+          "type": "string",
+          "description": "Stable client UUID; reuse for send retries"
+        },
+        "content": {
+          "type": "string",
+          "description": "Plain text, 1 to 10000 characters"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "edit_message",
+      "description": "edit message",
+      "operation": "batch",
+      "statements": [
+        "UPDATE messages SET body = :content,updated_at = :__now,edited_at = :__now WHERE id = :message_id AND workspace_id = :workspace_id AND channel_id = :channel_id AND user_id = :__user_id AND deleted_at IS NULL AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id AND c.is_archived = 0) AND length(trim(:content)) BETWEEN 1 AND 10000 AND length(:content) <= 10000 AND body != :content AND created_at >= :__now - 86400000",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'edit_message', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "message_id": {
+          "type": "string",
+          "description": "Stable client UUID; reuse for send retries"
+        },
+        "content": {
+          "type": "string",
+          "description": "Replacement plain text"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "delete_message",
+      "description": "delete message",
+      "operation": "batch",
+      "statements": [
+        "UPDATE messages SET body = '',is_deleted = 1,updated_at = :__now,deleted_at = :__now WHERE id = :message_id AND workspace_id = :workspace_id AND channel_id = :channel_id AND deleted_at IS NULL AND (user_id = :__user_id OR EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin'))) AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id)",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'delete_message', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "message_id": {
+          "type": "string",
+          "description": "Stable client UUID; reuse for send retries"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "add_reaction",
+      "description": "add reaction",
+      "operation": "batch",
+      "statements": [
+        "INSERT OR IGNORE INTO message_reactions(message_id,channel_id,user_id,emoji,workspace_id,created_at) SELECT id,channel_id,:__user_id,:emoji,:workspace_id,:__now FROM messages WHERE id = :message_id AND channel_id = :channel_id AND workspace_id = :workspace_id AND deleted_at IS NULL AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id AND c.is_archived = 0) AND length(:emoji) BETWEEN 1 AND 32",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'add_reaction', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "message_id": {
+          "type": "string",
+          "description": "Stable client UUID; reuse for send retries"
+        },
+        "emoji": {
+          "type": "string",
+          "description": "Emoji identifier, 1 to 32 characters"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "remove_reaction",
+      "description": "remove reaction",
+      "operation": "batch",
+      "statements": [
+        "DELETE FROM message_reactions WHERE channel_id = :channel_id AND workspace_id = :workspace_id AND message_id = :message_id AND user_id = :__user_id AND emoji = :emoji AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id) AND EXISTS (SELECT 1 FROM messages m WHERE m.id = :message_id AND m.channel_id = :channel_id AND m.workspace_id = :workspace_id)",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'remove_reaction', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "message_id": {
+          "type": "string",
+          "description": "Stable client UUID; reuse for send retries"
+        },
+        "emoji": {
+          "type": "string",
+          "description": "Emoji identifier, 1 to 32 characters"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "get_messages",
+      "description": "get messages",
+      "operation": "query",
+      "sql": "SELECT id,channel_id,workspace_id,user_id,body,body AS content,created_at,edited_at,deleted_at,(SELECT COALESCE(NULLIF(sender.display_name,''),sender.user_id) FROM workspace_members sender WHERE sender.workspace_id = messages.workspace_id AND sender.user_id = messages.user_id) AS display_name,(SELECT json_group_array(json_object('emoji',grouped.emoji,'count',grouped.count,'reacted',grouped.reacted)) FROM (SELECT r.emoji,COUNT(*) AS count,MAX(r.user_id = :__user_id) AS reacted FROM message_reactions r JOIN workspace_members active ON active.workspace_id = r.workspace_id AND active.user_id = r.user_id WHERE r.workspace_id = messages.workspace_id AND r.channel_id = messages.channel_id AND r.message_id = messages.id GROUP BY r.emoji ORDER BY r.emoji LIMIT 32) grouped) AS reactions FROM messages WHERE workspace_id = :workspace_id AND channel_id = :channel_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id) AND deleted_at IS NULL AND (:before_id IS NULL OR (created_at,id) < (SELECT cursor.created_at,cursor.id FROM messages cursor WHERE cursor.id = :before_id AND cursor.workspace_id = :workspace_id AND cursor.channel_id = :channel_id)) ORDER BY created_at DESC,id DESC LIMIT 50",
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "before_id": {
+          "type": "string",
+          "description": "Older-than message id within this channel",
+          "optional": true
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "get_reactions",
+      "description": "get reactions",
+      "operation": "query",
+      "sql": "SELECT r.emoji,COUNT(*) AS count,MAX(r.user_id = :__user_id) AS reacted FROM message_reactions r JOIN messages msg ON msg.id = r.message_id AND msg.workspace_id = r.workspace_id AND msg.channel_id = r.channel_id JOIN workspace_members active ON active.workspace_id = r.workspace_id AND active.user_id = r.user_id WHERE r.workspace_id = :workspace_id AND r.channel_id = :channel_id AND r.message_id = :message_id AND msg.deleted_at IS NULL AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) GROUP BY r.emoji ORDER BY r.emoji LIMIT 32",
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id, always reauthorized against caller membership"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "message_id": {
+          "type": "string",
+          "description": "Message id; stable UUID for retrying sends"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "get_workspace_members",
+      "description": "get workspace members",
+      "operation": "query",
+      "sql": "SELECT wm.user_id,COALESCE(NULLIF(wm.display_name,''),wm.user_id) AS display_name,wm.role,wm.joined_at FROM workspace_members wm WHERE wm.workspace_id = :workspace_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) ORDER BY wm.joined_at,wm.user_id LIMIT 500",
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id, always reauthorized against caller membership"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "get_member_profile",
+      "description": "get member profile",
+      "operation": "query",
+      "sql": "SELECT target.user_id,COALESCE(NULLIF(target.display_name,''),target.user_id) AS display_name,target.role,target.avatar_url,target.joined_at FROM workspace_members target WHERE target.workspace_id = :workspace_id AND target.user_id = :user_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) LIMIT 1",
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id, always reauthorized against caller membership"
+        },
+        "user_id": {
+          "type": "string",
+          "description": "Workspace member"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "update_member_role",
+      "description": "update member role",
+      "operation": "batch",
+      "statements": [
+        "UPDATE workspace_members SET role = :role WHERE workspace_id = :workspace_id AND user_id = :user_id AND role != 'owner' AND role != :role AND :role IN ('admin','member') AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role = 'owner')",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'update_member_role', :user_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "user_id": {
+          "type": "string",
+          "description": "Member to update"
+        },
+        "role": {
+          "type": "string",
+          "description": "admin or member; ownership transfer is deferred"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "remove_member",
+      "description": "remove member",
+      "operation": "batch",
+      "statements": [
+        "DELETE FROM workspace_members WHERE workspace_id = :workspace_id AND user_id = :user_id AND user_id != :__user_id AND role != 'owner' AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin')) AND (role = 'member' OR EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role = 'owner'))",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'remove_member', :user_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "user_id": {
+          "type": "string",
+          "description": "Member to remove"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "update_my_profile",
+      "description": "update my profile. SQL authorization; zero changes means refused/no-op.",
+      "operation": "batch",
+      "statements": [
+        "UPDATE workspace_members SET display_name = :display_name WHERE workspace_id = :workspace_id AND user_id = :__user_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND length(trim(:display_name)) BETWEEN 1 AND 80 AND length(:display_name) <= 80 AND display_name != :display_name",
+        "INSERT INTO audit_log(id,workspace_id,actor_id,action,target_id,created_at) SELECT :__uuid,:workspace_id,:__user_id,'update_my_profile',:__user_id,:__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id, always reauthorized against caller membership"
+        },
+        "display_name": {
+          "type": "string",
+          "description": "Display name, 1..80 characters"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "can_join_channel",
+      "description": "can join channel",
+      "operation": "query",
+      "sql": "SELECT 1 AS allowed FROM channels c JOIN workspace_members wm ON wm.workspace_id = c.workspace_id AND wm.user_id = :__user_id JOIN channel_members cm ON cm.workspace_id = c.workspace_id AND cm.channel_id = c.id AND cm.user_id = :__user_id WHERE length(c.workspace_id) || ':' || c.workspace_id || '/' || c.id = :key AND :room = 'channel:' || :key LIMIT 1",
+      "params": {
+        "room": {
+          "type": "string",
+          "description": "Full room id"
+        },
+        "key": {
+          "type": "string",
+          "description": "Workspace/channel room key"
+        }
+      },
+      "requires_auth": true
+    }
+  ],
+  "rooms": [
+    {
+      "pattern": "channel:*",
+      "authorize": "can_join_channel"
     }
   ]
 }

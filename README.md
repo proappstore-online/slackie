@@ -2,7 +2,7 @@
 
 Slackie is a team communication app foundation for ProAppStore. This repository
 contains the design library, registered SQL actions, additive migrations, a
-React/Vite workspace/channel/message shell, and local authorization tests.
+React/Vite channel conversations and member management, and local authorization tests.
 Hosted use requires PAS setup; this is not production-ready. No deployment
 workflow is enabled.
 
@@ -19,6 +19,10 @@ for the provisional schema and remaining release gates.
 Requires Node 24 (used in CI) and pnpm 10.30.3. Run `pnpm install`, `pnpm test`, and
 `pnpm build`. `pnpm dev` serves the app shell; hosted PAS actions require
 separate platform setup. `pnpm build` runs the platform compliance check first.
+
+Browser interaction tests use mocked PAS transport: run `pnpm exec playwright
+install chromium`, then `pnpm test:browser`. An existing Chrome/Edge executable
+can be selected with `SLACKIE_BROWSER`. These tests do not validate hosted PAS.
 
 ## Design library
 

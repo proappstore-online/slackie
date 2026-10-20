@@ -216,3 +216,17 @@ a:focus-visible {
   .skip-link:focus { position: static; transform: none; }
   @media (max-width: 640px) { .conversation-layout { grid-template-columns: minmax(0, 1fr); } }
 }
+
+@layer components {
+  dialog { width: min(36rem, calc(100% - 2rem)); max-height: 85dvh; overflow: auto; margin: auto; padding: 1.5rem; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--paper); color: var(--ink); }
+  dialog::backdrop { background: rgb(0 0 0 / .55); }
+  .message-scroll { max-height: 60dvh; overflow-y: auto; overflow-wrap: anywhere; }
+  .message-actions, .member-list li { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+  .message-actions { margin-block: .5rem; }
+  .member-list li { padding-block: .75rem; border-block-end: 1px solid var(--line); }
+  .role-badge { border: 1px solid var(--line-strong); border-radius: 1rem; padding: .15rem .5rem; font-size: .875rem; }
+  @media (hover: hover) and (pointer: fine) {
+    .message-actions { opacity: 0; }
+    .message-card:hover .message-actions, .message-card:focus-within .message-actions { opacity: 1; }
+  }
+}

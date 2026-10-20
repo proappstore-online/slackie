@@ -78,9 +78,9 @@ function denied(name, user, params) {
 }
 const W = { workspace_id: 'w1' }, C = { ...W, channel_id: 'c1' }, P = { ...W, channel_id: 'private' }
 const M = { ...C, message_id: 'm1' }, R = { ...M, emoji: 'thumbsup' }
-ok(Object.keys(TOOLS).length === 19, 'all 19 expected actions registered')
+ok(Object.keys(TOOLS).length === 40, 'all 40 expected actions registered')
 ok(Object.values(TOOLS).every(t => t.requires_auth), 'all actions require authentication')
-ok(Object.values(TOOLS).filter(t => t.operation !== 'query').every(t => t.operation === 'batch' && t.statements.at(-1).includes('INSERT INTO activity_log')), 'all mutations end with guarded audit')
+ok(Object.values(TOOLS).filter(t => t.operation !== 'query').every(t => t.operation === 'batch' && t.statements.at(-1).includes('INSERT INTO audit_log')), 'all mutations end with guarded audit')
 for (const name of Object.keys(TOOLS)) {
   let rejected = false
   try { call(name, null, {}) } catch { rejected = true }
@@ -106,7 +106,7 @@ const samples = {
 call('workspace_member_add', 'owner', { ...W, user_id: 'admin', role: 'admin' })
 call('workspace_member_add', 'owner', { ...W, user_id: 'member' })
 call('workspace_member_add', 'owner', { ...W, user_id: 'reader' })
-ok(call('channel_create', 'admin', { ...C, name: 'general' })[0] === 1, 'admin creates public channel and joins atomically')
+ok(call('channel_create', 'admin', { ...C, name: 'team' })[0] === 1, 'admin creates public channel and joins atomically')
 ok(call('channel_create', 'admin', { ...P, name: 'secret', is_private: 1 })[0] === 1, 'create private channel')
 ok(call('channel_get', 'owner', P).length === 0, 'owner cannot read private metadata without membership')
 ok(call('channel_list', 'owner', W).every(c => c.id !== 'private'), 'private channel hidden in lists')
@@ -154,6 +154,8 @@ ok(db.prepare("SELECT body,deleted_at FROM messages WHERE id = 'm1'").get().body
 denied('message_edit', 'member', { ...M, body: 'restore' })
 denied('reaction_add', 'reader', R)
 denied('message_delete', 'admin', M)
+call('channel_create', 'admin', { ...W, channel_id: 'other-public', name: 'other' })
+call('channel_join', 'reader', { ...W, channel_id: 'other-public' })
 ok(call('channel_leave', 'reader', C)[0] === 1, 'member leaves channel')
 ok(call('message_list', 'reader', C).length === 0, 'channel leave revokes message reads')
 denied('message_send', 'reader', { ...C, message_id: 'after-leave', body: 'no' })
@@ -209,5 +211,120 @@ legacy.exec(migrations[4].sql)
 ok(legacy.prepare('SELECT deleted_at FROM messages').get().deleted_at === 2, 'migration preserves legacy deletion state')
 ok(legacy.prepare('SELECT channel_id FROM message_reactions').get().channel_id === 'old-channel', 'migration copies scoped reactions')
 ok(legacy.prepare('SELECT entity_id FROM activity_log').get().entity_id === 'old-message', 'migration preserves audit history')
+legacy.exec(migrations[5].sql)
+ok(legacy.prepare('SELECT target_id FROM audit_log').get().target_id === 'old-message', 'new migration preserves legacy audit')
+legacy.exec("INSERT INTO audit_log VALUES ('new-audit','old','old-owner','edit_message','old-message',3)")
+ok(legacy.prepare("SELECT count(*) AS n FROM activity_log WHERE id = 'new-audit'").get().n === 1, 'audit bridge records exactly one activity item')
 legacy.close()
-console.log('Passed ' + checks + ' assertions across all 19 actions.')
+
+// New collaboration actions and their independent authorization boundaries.
+const NW = { workspace_id: 'collab' }
+const NC = { ...NW, channel_id: 'public-collab' }
+const NP = { ...NW, channel_id: 'private-collab' }
+const NM = { ...NC, message_id: 'collab-message' }
+call('workspace_create', 'boss', { ...NW, name: 'Collaboration', slug: 'collab' })
+for (const [user_id,role] of [['staff','admin'],['writer','member'],['teammate','member']]) call('workspace_member_add','boss',{...NW,user_id,role})
+call('create_channel','boss',{...NC,name:'general'})
+call('create_channel','boss',{...NP,name:'private',is_private:1})
+call('join_channel','writer',NC)
+call('join_channel','staff',NC)
+call('channel_create','boss',{...NW,channel_id:'second',name:'second'})
+call('join_channel','writer',{...NW,channel_id:'second'})
+const newCases = {
+ create_channel: {...NW,channel_id:'attempt',name:'attempt'},
+ update_channel: {...NC,name:'renamed',topic:'topic',description:'description'}, archive_channel: NC,
+ join_channel: NC, leave_channel: {...NW,channel_id:'second'},
+ invite_to_channel: {...NP,user_id:'teammate'},
+ send_message: {...NM,content:'hello'}, edit_message: {...NM,content:'edited'},delete_message: NM,
+ add_reaction: {...NM,emoji:'??'},remove_reaction: {...NM,emoji:'??'},
+ update_member_role: {...NW,user_id:'writer',role:'admin'},remove_member: {...NW,user_id:'writer'},
+ update_my_profile: {...NW,display_name:'Spoof'},
+}
+for(const [name,params] of Object.entries(newCases)) {
+ denied(name,'stranger',params)
+ denied(name,'owner',params) // owner of a different workspace
+}
+for(const [name,params] of Object.entries({get_channels:NW,get_channel_members:NP,get_messages:NP,get_reactions:{...NM},get_workspace_members:NW,get_member_profile:{...NW,user_id:'boss'}})) {
+ ok(call(name,'stranger',params).length===0,name+' denies outsider query')
+ ok(call(name,'owner',params).length===0,name+' denies other-tenant owner query')
+}
+ok(call('get_channels','writer',NW).every(c=>c.id!=='private-collab'),'new channel list hides private names')
+ok(call('get_channel_members','staff',NP).length===0,'admin cannot inspect private roster without membership')
+denied('update_channel','staff',{...NP,name:'leak',topic:'',description:''})
+denied('archive_channel','staff',NP)
+denied('invite_to_channel','staff',{...NP,user_id:'staff'})
+ok(call('invite_to_channel','boss',{...NP,user_id:'writer'})[0]===1,'private member can invite workspace member')
+ok(call('invite_to_channel','writer',{...NP,user_id:'teammate'})[0]===1,'ordinary private-channel member can invite')
+denied('invite_to_channel','writer',{...NP,user_id:'other'})
+ok(call('get_channel_members','writer',NP).length===3,'private member reads eligible roster')
+ok(call('update_channel','boss',{...NP,name:'renamed-private',topic:'A topic',description:'Context'})[0]===1,'owner edits authorized channel metadata')
+ok(call('get_channels','writer',NW).find(c=>c.id===NP.channel_id).topic==='A topic','topic returned in channel list')
+denied('update_channel','writer',{...NP,name:'no',topic:'',description:''})
+denied('leave_channel','writer',NC) // General is protected even when another channel exists.
+call('join_channel','teammate',{...NW,channel_id:'second'})
+// teammate also belongs to the private channel, so this leave is safe.
+ok(call('leave_channel','teammate',{...NW,channel_id:'second'})[0]===1,'member can leave an ordinary channel with another membership')
+denied('leave_channel','teammate',NP)
+ok(call('update_my_profile','writer',{...NW,display_name:'Ada'})[0]===1,'member updates own scoped profile')
+ok(call('get_member_profile','staff',{...NW,user_id:'writer'})[0].display_name==='Ada','profile visible within workspace')
+ok(call('get_workspace_members','writer',NW).find(m=>m.user_id==='writer').display_name==='Ada','directory returns display name')
+ok(call('send_message','writer',{...NM,content:'Hello from Ada'})[0]===1,'new send action stores content')
+ok(call('get_messages','writer',NC)[0].display_name==='Ada','timeline resolves sender name')
+ok(call('get_messages','writer',NC)[0].content==='Hello from Ada','timeline returns content contract')
+denied('send_message','writer',{...NC,message_id:'empty',content:'   '})
+denied('send_message','writer',{...NC,message_id:'long',content:'x'.repeat(10001)})
+denied('send_message','writer',{...NM,content:'retry'})
+denied('edit_message','staff',{...NM,content:'not mine'})
+ok(call('edit_message','writer',{...NM,content:'Updated'})[0]===1,'author edits within 24 hours')
+db.prepare('INSERT INTO messages(id,channel_id,workspace_id,user_id,body,created_at,updated_at) VALUES (?,?,?,?,?,?,?)').run('old-edit','public-collab','collab','writer','Old',clock-86400001,clock-86400001)
+denied('edit_message','writer',{...NC,message_id:'old-edit',content:'too late'})
+denied('message_edit','writer',{...NC,message_id:'old-edit',body:'legacy bypass'})
+ok(call('add_reaction','writer',{...NM,emoji:'??'})[0]===1,'new reaction inserts')
+ok(call('add_reaction','staff',{...NM,emoji:'??'})[0]===1,'second member reacts')
+denied('add_reaction','writer',{...NM,emoji:'??'})
+const grouped = call('get_reactions','writer',NM)
+ok(grouped[0].count===2 && grouped[0].reacted===1,'reaction aggregation includes count and caller flag')
+ok(JSON.parse(call('get_messages','writer',NC)[0].reactions)[0].count===2,'timeline includes scoped reaction counts')
+denied('remove_reaction','teammate',{...NM,emoji:'??'})
+ok(call('remove_reaction','writer',{...NM,emoji:'??'})[0]===1,'new remove reaction only removes own row')
+ok(call('get_reactions','writer',NM)[0].count===1 && call('get_reactions','writer',NM)[0].reacted===0,'other reaction survives removal')
+const room = {room:'channel:6:collab/private-collab',key:'6:collab/private-collab'}
+ok(call('can_join_channel','writer',room).length===1,'private room admits active private member')
+ok(call('can_join_channel','staff',room).length===0,'private room denies nonmember admin')
+ok(call('can_join_channel','writer',{...room,room:'channel:other/private-collab'}).length===0,'room/key mismatch fails closed')
+ok(call('can_join_channel','owner',room).length===0,'other workspace owner denied room')
+denied('update_member_role','staff',{...NW,user_id:'writer',role:'admin'})
+denied('update_member_role','boss',{...NW,user_id:'boss',role:'admin'})
+denied('update_member_role','boss',{...NW,user_id:'writer',role:'owner'})
+ok(call('update_member_role','boss',{...NW,user_id:'teammate',role:'admin'})[0]===1,'owner promotes ordinary member')
+denied('remove_member','staff',{...NW,user_id:'teammate'})
+denied('remove_member','staff',{...NW,user_id:'boss'})
+denied('remove_member','boss',{...NW,user_id:'boss'})
+ok(call('remove_member','boss',{...NW,user_id:'teammate'})[0]===1,'owner removes non-owner')
+ok(call('get_member_profile','boss',{...NW,user_id:'teammate'}).length===0,'removed member profile unavailable')
+ok(call('can_join_channel','teammate',room).length===0,'membership removal revokes future room authorization')
+ok(call('get_messages','teammate',NP).length===0,'membership removal revokes message action')
+ok(call('delete_message','staff',NM)[0]===1,'channel-member admin soft deletes message')
+ok(call('get_messages','writer',NC).every(m=>m.id!==NM.message_id),'new timeline omits deleted body')
+ok(call('get_reactions','writer',NM).length===0,'deleted message reactions are hidden')
+ok(call('archive_channel','boss',NP)[0]===1,'authorized owner archives private channel')
+ok(call('get_channels','writer',NW).find(c=>c.id===NP.channel_id).archived_at!==null,'archive records server timestamp')
+denied('send_message','writer',{...NP,message_id:'after-archive',content:'no'})
+denied('join_channel','writer',NP)
+// Spoofed magic actor/tenant inputs are never accepted as ordinary parameters.
+for(const name of ['send_message','update_channel','update_member_role']) {
+ let rejected=false
+ try {call(name,'stranger',{...newCases[name],__user_id:'boss',__workspace_id:'collab'})}catch{rejected=true}
+ ok(rejected,name+' rejects injected identity spoofing')
+}
+ok(manifestRoomCheck(),'protected channel room declared')
+function manifestRoomCheck(){return read('../mcp.json').rooms.some(r=>r.pattern==='channel:*'&&r.authorize==='can_join_channel')}
+// Length-qualified workspace prefixes prevent delimiter collisions across tenants.
+for (const [workspace_id,channel_id,user,slug] of [['a/b','c','collision-a','collision-a'],['a','b/c','collision-b','collision-b']]) {
+ call('workspace_create',user,{workspace_id,name:slug,slug})
+ call('create_channel',user,{workspace_id,channel_id,name:'test'})
+}
+const collisionRoom={room:'channel:3:a/b/c',key:'3:a/b/c'}
+ok(call('can_join_channel','collision-a',collisionRoom).length===1,'qualified room admits its own tenant')
+ok(call('can_join_channel','collision-b',collisionRoom).length===0,'delimiter collision never joins another tenant room')
+console.log('Passed ' + checks + ' assertions across all '+Object.keys(TOOLS).length+' actions.')

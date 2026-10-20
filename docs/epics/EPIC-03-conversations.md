@@ -7,7 +7,8 @@
 ## Tasks
 
 - [ ] **E3.1 Define message state machine.** Plain-text/allowlisted formatting,
-  length, active/edited/deleted states, author-only edit/delete authority,
+  length, active/edited/deleted states, author-only edits within 24 hours and
+  author or active-channel owner/admin deletion per the current implementation instruction,
   per-message ownership, and tombstones.
 - [ ] **E3.2 Specify composer.** Draft, send shortcut preference, line breaks,
   mentions, safe external-link behavior, validation, retry, copy-text, and
@@ -36,3 +37,12 @@
 - A retry cannot create two canonical messages.
 - Thread replies always preserve root channel context.
 - Message body is safely rendered and never returned to a non-member.
+
+## Implementation progress
+
+Channel messaging, 24-hour author edits, soft deletion, grouped reactions,
+sender profiles, retry ids, and paginated reads are implemented. Owner/admin
+deletion still requires active channel membership; it does not grant exceptional
+private-content access. The current requested timeline omits deleted rows.
+Threads, revision conflicts, canonical send responses, and durable change-feed
+handoff remain open; this increment does not complete E3.

@@ -8,3 +8,5 @@ dist/
 .vite/
 .vibe-check/
 .pas.json
+test-results/
+playwright-report/
