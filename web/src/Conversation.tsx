@@ -4,12 +4,15 @@ import { ChannelDetails } from './ChannelDetails'
 import { submitOnEnter } from './composer'
 import { MessageCard } from './MessageCard'
 import { ThreadPanel } from './ThreadPanel'
+import { useNavigation } from './navigation'
 
 export function Conversation({ channel, role, onChannelsChange, requestedThread }: { channel: Channel; role: Role; onChannelsChange: () => Promise<void>; requestedThread?: string | null }) {
+  const { setMobileView } = useNavigation()
   const [messages, setMessages] = useState<Message[]>([])
   const [draft, setDraft] = useState('')
   const [thread, setThread] = useState<string | null>(requestedThread ?? null)
   useEffect(() => { if (requestedThread) setThread(requestedThread) }, [requestedThread])
+  useEffect(() => { if (thread) setMobileView('thread') }, [thread, setMobileView])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(!!channel.is_member)
   const [busy, setBusy] = useState(false)
@@ -106,7 +109,8 @@ export function Conversation({ channel, role, onChannelsChange, requestedThread 
       setDraft(''); nonce.current = null; await changed()
     } catch (err) { setError(errorText(err)) } finally { setBusy(false) }
   }
-  return <main id="conversation" aria-labelledby="channel-title">
+  return <main id="conversation" tabIndex={-1} className="conversation-main" aria-labelledby="channel-title">
+    <div className="conversation-context">
     <header><h2 id="channel-title">{channel.name}{channel.is_archived ? ' (archived)' : ''}</h2><p>{channel.topic || channel.description}</p></header>
     {channel.name === 'general' && <p role="note">Welcome to #general. Introduce yourself and start a conversation with your team.</p>}
     <ChannelDetails channel={channel} role={role} onChanged={onChannelsChange} />
@@ -114,11 +118,13 @@ export function Conversation({ channel, role, onChannelsChange, requestedThread 
     {!!channel.is_member && !!channel.can_leave && <button disabled={busy} onClick={() => void membership()}>Leave channel</button>}
     {!!channel.is_member && !channel.can_leave && <p>General and your last joined channel cannot be left.</p>}
     {error && <p role="alert">{error}</p>}
+    </div>
     {!!channel.is_member && <>
+      <div className="conversation-status">
       <p role="status">{loading ? 'Loading messages…' : connection}</p>
       <button disabled={busy || loading} onClick={() => void refresh()}>Refresh messages</button>
       {hasMore && <button disabled={busy || loading} onClick={() => void refresh(true)}>Load older messages</button>}
-      <div className={thread ? "message-and-thread" : undefined}><section aria-label="Channel conversation"><div className="message-scroll"><ol aria-label="Messages" className="message-list">{[...messages].reverse().map(message =>
+      </div><div className={thread ? "conversation-content message-and-thread" : "conversation-content"}><section aria-label="Channel conversation"><div className="message-scroll"><ol aria-label="Messages" className="message-list">{[...messages].reverse().map(message =>
         <MessageCard key={message.id} message={message} params={{ ...params, message_id: message.id }} role={role} archived={!!channel.is_archived} onChanged={changed} onThread={() => setThread(message.id)} />
       )}</ol>{!loading && !messages.length && <p>No messages yet.</p>}<div ref={endRef} /></div>
       <form onSubmit={send} className="slackie-form"><label>Message
@@ -126,7 +132,8 @@ export function Conversation({ channel, role, onChannelsChange, requestedThread 
           onChange={event => setDraft(event.target.value)} onKeyDown={submitOnEnter} /></label>
         <small id="send-help">Enter or Ctrl+Enter sends. Shift+Enter adds a line. Use @handles from Members to mention teammates.</small>
         <button disabled={busy || loading || !!channel.is_archived || !draft.trim()}>Send message</button>
-      </form></section>{thread && <ThreadPanel key={thread} channel={channel} parentId={thread} role={role} onClose={() => setThread(null)} onChanged={changed} />}</div>
+      </form></section>{thread && <ThreadPanel key={thread} channel={channel} parentId={thread} role={role} onClose={() => { setThread(null); setMobileView('conversation') }} onChanged={changed} />}</div>
     </>}
+    {!thread && <p className="empty-thread">Open a message reply to view its thread.</p>}
   </main>
 }

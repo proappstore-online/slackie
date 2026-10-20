@@ -35,14 +35,17 @@ export default defineConfig({
         ],
       },
       manifest: {
+        id: '/',
+        display_override: ['window-controls-overlay', 'standalone'],
+        categories: ['productivity', 'communication'],
         name: 'slackie',
         short_name: 'slackie',
         description: 'slackie',
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        background_color: '#fffaf7',
-        theme_color: '#000000',
+        background_color: '#ffffff',
+        theme_color: '#ffffff',
         orientation: 'any',
         // Platform compliance checks for this custom field (not a W3C standard).
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

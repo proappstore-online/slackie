@@ -2,23 +2,48 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { SignInButton, useAuth } from '@proappstore/sdk'
 import { app, batch, accessLost, errorText, query, type Workspace } from './api'
 import { ChannelShell } from './Channels'
+import { NavigationContext, useNavigation, type MobileView } from './navigation'
+import { OwnProfile } from './Members'
 
+// Navigation decisions (E25/E32):
+// - Mobile tabs are ephemeral; authorized channel selection opens conversation.
+//   URL deep links and persistent private drafts are outside this slice.
+// - Top-bar back handles intra-app navigation. Browser/OS back retains native
+//   behavior, which varies by browser and standalone host.
+// - Tabs retain mounted drafts; channel/workspace/access changes discard them.
+// - Reflow uses rem and dvh; enlarged-text checks live in Playwright.
 export default function App() {
+  const [mobileView, setMobileView] = useState<MobileView>('channels')
+  const [context, setContext] = useState({ workspace: '', channel: '' })
+  return <NavigationContext.Provider value={{ mobileView, setMobileView, context, setContext }}><AppShell /></NavigationContext.Provider>
+}
+
+function AppShell() {
   const { user, loading, signOut } = useAuth(app)
   const authError = app.auth.authError
-  return <div className="slackie-shell">
-    <a href="#conversation" className="skip-link">Skip to conversation</a>
-    <header className="slackie-header"><h1>Slackie</h1>{user && <button onClick={signOut}>Sign out</button>}</header>
-    {loading ? <p role="status">Checking your session…</p> : user ? <WorkspaceShell key={user.id} />
+  const { mobileView, setMobileView, context } = useNavigation()
+  const [profileOpen, setProfileOpen] = useState(false)
+  return <div className="slackie-shell app-shell" data-mobile-view={mobileView}>
+    <a href="#conversation" className="skip-link" onClick={() => setMobileView('conversation')}>Skip to conversation</a>
+    <header className="top-bar">
+      {user && mobileView !== 'channels' && <button className="mobile-back" aria-label="Back" onClick={() => setMobileView(mobileView === 'thread' ? 'conversation' : 'channels')}>&larr;</button>}
+      <div className="top-title"><h1>Slackie</h1>{user && <p>{context.workspace}{context.channel && ' / #' + context.channel}{mobileView === 'thread' && ' / Thread'}</p>}</div>
+      {user && <><button className="avatar-button" aria-label="Open your profile" onClick={() => setProfileOpen(true)}>{user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : <span aria-hidden="true">{user.login?.slice(0, 1).toUpperCase() || 'You'}</span>}</button><button onClick={signOut}>Sign out</button></>}
+    </header>
+    <div className="scroll-area">
+    {loading ? <p role="status">Checking your session…</p> : user ? <WorkspaceShell key={user.id} profileOpen={profileOpen} onProfileClose={() => setProfileOpen(false)} />
       : <main id="conversation"><h2>Team conversations, together.</h2>
         <p>Sign in or create your account to open your workspaces.</p>
         {authError && <p role="alert">Sign-in could not be completed. Please try again. If this continues, report this code: {authError}</p>}
         <div className="signin-actions"><SignInButton app={app} provider="google" label="Sign in with Google" />{' '}
         <SignInButton app={app} provider="github" label="Sign in with GitHub" /></div></main>}
+    </div>
+    {user && <nav className="bottom-bar" aria-label="Mobile navigation">{(['channels', 'conversation', 'thread'] as const).map((tab, index) => <button key={tab} aria-current={mobileView === tab ? 'page' : undefined} onClick={() => { setMobileView(tab); window.dispatchEvent(new Event('slackie:navigate')) }}><span aria-hidden="true">{['\u2637', '\u25a4', '\u21b3'][index]}</span>{['Channels', 'Conversation', 'Threads'][index]}</button>)}</nav>}
   </div>
 }
 
-function WorkspaceShell() {
+function WorkspaceShell({ profileOpen, onProfileClose }: { profileOpen: boolean; onProfileClose: () => void }) {
+  const { setContext, setMobileView } = useNavigation()
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [selected, setSelected] = useState('')
   const [name, setName] = useState('')
@@ -65,6 +90,10 @@ function WorkspaceShell() {
     } catch (err) { setError(errorText(err)) } finally { setBusy(false) }
   }
   const workspace = workspaces.find(row => row.id === selected)
+  useEffect(() => {
+    setContext(current => ({ ...current, workspace: workspace?.name ?? '' }))
+  }, [workspace?.name, setContext])
+  useEffect(() => { setMobileView('channels') }, [workspace?.id, setMobileView])
   async function refreshWorkspaces() { setWorkspaces(await query<Workspace>('workspace_list')) }
   return <>
     <section aria-label="Workspaces" className="workspace-controls">
@@ -80,6 +109,7 @@ function WorkspaceShell() {
         <button aria-label="Create workspace" disabled={busy || loading || !name || nameInvalid}>{busy ? 'Creating…' : 'Create workspace'}</button>
       </form></details>
     </section>
+    {profileOpen && <OwnProfile key={`profile:${selected}`} workspace={workspace} onClose={onProfileClose} />}
     {error && <p role="alert">{error}</p>}
     {loading ? <p role="status">Loading workspaces…</p> : workspace ? <ChannelShell key={workspace.id} workspace={workspace} onWorkspaceChanged={refreshWorkspaces} />
       : <main id="conversation"><p>Create a workspace to get started.</p></main>}

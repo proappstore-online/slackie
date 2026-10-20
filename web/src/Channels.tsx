@@ -5,8 +5,15 @@ import { Members } from './Members'
 import { Modal } from './Modal'
 import { Mentions } from './Mentions'
 import { Settings } from './Settings'
+import { useNavigation } from './navigation'
 
 export function ChannelShell({ workspace, onWorkspaceChanged }: { workspace: Workspace; onWorkspaceChanged: () => Promise<void> }) {
+  const { setMobileView, setContext } = useNavigation()
+  useEffect(() => {
+    const showConversation = () => setView('channels')
+    window.addEventListener('slackie:navigate', showConversation)
+    return () => window.removeEventListener('slackie:navigate', showConversation)
+  }, [])
   const [channels, setChannels] = useState<Channel[]>([])
   const [selected, setSelected] = useState('')
   const [view, setView] = useState<'channels' | 'members' | 'mentions' | 'settings'>('channels')
@@ -53,14 +60,15 @@ export function ChannelShell({ workspace, onWorkspaceChanged }: { workspace: Wor
   }, [workspace.id])
   async function refresh() { setChannels(await getChannels(workspace.id)) }
   const channel = channels.find(row => row.id === selected)
+  useEffect(() => { setContext(current => ({ ...current, channel: channel?.name ?? '' })) }, [channel?.name, setContext])
   return <div className="conversation-layout"><aside aria-label="Workspace navigation">
-    <button onClick={() => setView('members')} aria-current={view === 'members' ? 'page' : undefined}>Members</button>
-    <button onClick={() => setView('mentions')} aria-current={view === 'mentions' ? 'page' : undefined}>Mentions ({mentionCount} unread)</button>
-    {workspace.role !== 'member' && <button onClick={() => setView('settings')} aria-current={view === 'settings' ? 'page' : undefined}>Settings</button>}
+    <button onClick={() => { setView('members'); setMobileView('conversation') }} aria-current={view === 'members' ? 'page' : undefined}>Members</button>
+    <button onClick={() => { setView('mentions'); setMobileView('conversation') }} aria-current={view === 'mentions' ? 'page' : undefined}>Mentions ({mentionCount} unread)</button>
+    {workspace.role !== 'member' && <button onClick={() => { setView('settings'); setMobileView('conversation') }} aria-current={view === 'settings' ? 'page' : undefined}>Settings</button>}
     <h2>Channels</h2>{loading && <p role="status">Loading channels…</p>}
     <nav aria-label="Channels"><ul>{channels.map(row => <li key={row.id}><button
       aria-current={view === 'channels' && row.id === selected ? 'page' : undefined}
-      onClick={() => { setSelected(row.id); setRequestedThread(null); setView('channels') }}>
+      onClick={() => { setSelected(row.id); setRequestedThread(null); setView('channels'); setMobileView('conversation') }}>
       {row.is_private ? 'Private: ' : '# '}{row.name}{row.is_archived ? ' (archived)' : ''}
     </button></li>)}</ul></nav>
     {!loading && !channels.length && <p>No channels available.</p>}
@@ -69,7 +77,7 @@ export function ChannelShell({ workspace, onWorkspaceChanged }: { workspace: Wor
   </aside>
     {view === 'members' ? <Members key={workspace.id} workspace={workspace} />
       : view === 'mentions' ? <Mentions workspaceId={workspace.id} onOpen={mention => {
-        void refresh().then(() => { setSelected(mention.channel_id); setRequestedThread(mention.root_id); setView('channels') }).catch(err => setError(errorText(err)))
+        void refresh().then(() => { setSelected(mention.channel_id); setRequestedThread(mention.root_id); setView('channels'); setMobileView('conversation') }).catch(err => setError(errorText(err)))
       }} />
       : view === 'settings' ? <Settings workspace={workspace} onChanged={onWorkspaceChanged} />
       : channel ? <Conversation key={`${channel.id}:${channel.is_member}`} channel={channel} role={workspace.role} onChannelsChange={refresh} requestedThread={requestedThread} />
@@ -77,7 +85,7 @@ export function ChannelShell({ workspace, onWorkspaceChanged }: { workspace: Wor
         ? <><h2>Create your first channel</h2><p>Start with #general, a shared place to introduce your team.</p><button onClick={() => setCreating(true)}>Create your first channel</button></>
         : <p>Ask an owner or admin to create your first channel.</p>}</main>}
     {creating && <CreateChannel workspace={workspace} firstChannel={!channels.length} onClose={() => setCreating(false)} onCreated={async id => {
-      await refresh(); setSelected(id); setView('channels'); setCreating(false)
+      await refresh(); setSelected(id); setView('channels'); setMobileView('conversation'); setCreating(false)
     }} />}
   </div>
 }

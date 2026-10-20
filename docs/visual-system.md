@@ -40,7 +40,8 @@ provisioning, new navigation, density setting, or child build tasks.
   conversation; above these thresholds retain sidebar and thread columns.
   At >=1024px only decorative background placement changes. Shell max 80rem,
   padding 1rem; dialogs min(36rem, viewport minus 2rem), max-height 85dvh.
-  These decisions preserve existing navigation; independent mobile IA is #25.
+  These original responsive decisions are superseded by #32: below 640px,
+  independent mobile views sit between persistent bars. See mobile-navigation.md.
 - Focus: 2px solid focus outline with 3px offset on interactive elements,
   including inputs, selects, textareas and summary. Focus contrasts with both
   paper and paper-deep. Hover uses paper-deep; selected/pressed adds underline,

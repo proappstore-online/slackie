@@ -57,8 +57,30 @@ export function Members({ workspace }: { workspace: Workspace }) {
       <label>Mention handle <input maxLength={32} pattern="[a-z0-9_-]{1,32}" value={handle} onChange={event => setHandle(event.target.value)} aria-describedby="handle-help" /></label>
       <small id="handle-help">Optional unique lowercase handle; uid- is reserved. Leave blank to keep your existing handle.</small>
       <button disabled={busy || !name.trim()}>Save profile</button></form>}
-    {profile && <Modal title={profile.display_name} onClose={() => setProfile(null)}>
-      <p>Role: {profile.role}</p>{profile.mention_handle && <p>@{profile.mention_handle}</p>}<p>Member since {new Date(profile.joined_at).toLocaleDateString()}</p>
-    </Modal>}
+    {profile && <ProfileModal profile={profile} onClose={() => setProfile(null)} />}
   </main>
+}
+
+export function ProfileModal({ profile, onClose }: { profile: Member; onClose: () => void }) {
+  return <Modal title={profile.display_name} onClose={onClose}><ProfileContent profile={profile} /></Modal>
+}
+
+function ProfileContent({ profile }: { profile: Member }) {
+  return <><p>Role: {profile.role}</p>{profile.mention_handle && <p>@{profile.mention_handle}</p>}<p>Member since {new Date(profile.joined_at).toLocaleDateString()}</p></>
+}
+
+export function OwnProfile({ workspace, onClose }: { workspace?: Workspace; onClose: () => void }) {
+  const [profile, setProfile] = useState<Member | null>(null)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    let active = true
+    const user = app.auth.user
+    if (workspace && user) void getMemberProfile({ workspace_id: workspace.id, user_id: user.id }).then(rows => {
+      if (active) { if (rows[0]) setProfile(rows[0]); else setError('Profile is no longer available.') }
+    }).catch(err => { if (active) setError(errorText(err)) })
+    return () => { active = false }
+  }, [workspace?.id])
+  return <Modal title={profile?.display_name ?? "Your profile"} onClose={onClose}>
+    {profile ? <ProfileContent profile={profile} /> : error ? <p role="alert">{error}</p> : workspace ? <p role="status">Loading profile...</p> : <p>{app.auth.user?.login}. Create a workspace to establish your member profile.</p>}
+  </Modal>
 }

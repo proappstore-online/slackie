@@ -3,6 +3,7 @@ import { archiveChannel, errorText, getChannelMembers, getWorkspaceMembers, invi
 import { Modal } from './Modal'
 
 export function ChannelDetails({ channel, role, onChanged }: { channel: Channel; role: Workspace['role']; onChanged: () => Promise<void> }) {
+  const [expanded, setExpanded] = useState(false)
   const [mode, setMode] = useState<'edit' | 'members' | null>(null)
   const [name, setName] = useState(channel.name)
   const [topic, setTopic] = useState(channel.topic)
@@ -43,12 +44,14 @@ export function ChannelDetails({ channel, role, onChanged }: { channel: Channel;
     } catch (err) { setError(errorText(err)) } finally { setBusy(false) }
   }
   const mayManage = role !== 'member' && (!channel.is_private || !!channel.is_member)
-  return <section aria-label="Channel settings">
+  return <section aria-label="Channel settings" className={expanded ? "channel-settings expanded" : "channel-settings"}>
+    {(channel.is_member || mayManage) && <button className="mobile-channel-actions" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>Channel actions</button>}
+    <div className="channel-action-buttons">
     {(channel.is_member || mayManage) && <button disabled={busy} onClick={() => void openMembers()}>Channel members</button>}
     {mayManage && !channel.is_archived && <>
       <button onClick={() => { setName(channel.name); setTopic(channel.topic); setDescription(channel.description); setMode('edit') }}>Edit channel</button>
       <button disabled={busy} onClick={() => void archive()}>Archive channel</button>
-    </>}{error && !mode && <p role="alert">{error}</p>}
+    </>}</div>{error && !mode && <p role="alert">{error}</p>}
     {mode && <Modal title={mode === 'edit' ? 'Edit channel' : 'Channel members'} onClose={() => { setMode(null); setError('') }}>
       {error && <p role="alert">{error}</p>}
       {mode === 'edit' ? <form onSubmit={save} className="slackie-form">
