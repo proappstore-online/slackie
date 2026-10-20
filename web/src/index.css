@@ -211,6 +211,9 @@ a:focus-visible {
 
 @layer components {
   .slackie-shell { max-width: 80rem; min-height: 100dvh; margin: auto; padding: 1rem; background: var(--paper); }
+  /* SDK provider buttons use inline colors and border: none. */
+  .signin-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-block: 1rem; }
+  .signin-actions button { background: var(--focus) !important; color: var(--paper) !important; border: 1px solid var(--focus) !important; }
   .slackie-header, .workspace-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; justify-content: space-between; padding-block: 1rem; }
   .conversation-layout { display: grid; grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); gap: 2rem; }
   .slackie-form { display: grid; gap: .75rem; margin-block: 1rem; }
@@ -273,6 +276,7 @@ a:focus-visible {
     .slackie-shell input, .slackie-shell select, .slackie-shell textarea,
     .role-badge, dialog { border-color: ButtonText; }
     .slackie-shell button:disabled { color: GrayText; opacity: 1; }
+    .signin-actions button { background: ButtonFace !important; color: ButtonText !important; border: 1px solid ButtonText !important; }
     .slackie-shell [role=alert] { color: CanvasText; background: Canvas; border-color: CanvasText; }
     .slackie-shell input[aria-invalid=true], .slackie-shell textarea[aria-invalid=true], .slackie-shell select[aria-invalid=true] { border-color: CanvasText; border-style: dashed; }
     .slackie-shell [aria-current=page], .slackie-shell [aria-pressed=true] { border-color: Highlight; }

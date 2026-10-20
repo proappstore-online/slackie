@@ -525,3 +525,17 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await expect(input).toHaveCSS('forced-color-adjust', 'auto')
   })
 }
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`${colorScheme} SDK sign-in buttons use measured colors and forced-color borders`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme })
+    await page.route('**/.pas/**', route => route.fulfill({ status: 401, json: {} }))
+    await page.goto('/')
+    const button = page.getByRole('button', { name: 'Sign in with Google', exact: true })
+    await expect(button).toHaveCSS('color', colorScheme === 'light' ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)')
+    await expect(button).toHaveCSS('background-color', colorScheme === 'light' ? 'rgb(36, 91, 115)' : 'rgb(137, 203, 229)')
+    await page.emulateMedia({ forcedColors: 'active' })
+    await expect(button).toHaveCSS('border-top-style', 'solid')
+    await expect(button).toHaveCSS('border-top-width', '1px')
+  })
+}

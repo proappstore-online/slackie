@@ -122,3 +122,9 @@ text, visible message actions and backdrop separation. Check zoom/reflow at
 200% and 400%. Resolve findings before declaring #24 complete or creating
 build-ready child tasks. No real-theme review or human approval is claimed by
 this implementation. E14's NVDA/VoiceOver journey gate remains separate (#26).
+
+Production review follow-up: SDK sign-in buttons supply inline white-on-accent
+colors and border:none, overriding normal component styles. The provider wrapper
+now explicitly overrides those inline declarations with paper-on-focus colors
+(7.45:1 light, 11.74:1 dark), and ButtonFace/ButtonText plus a solid border in
+forced colors. Dedicated browser regressions cover both provider palettes.

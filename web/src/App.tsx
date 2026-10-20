@@ -13,8 +13,8 @@ export default function App() {
       : <main id="conversation"><h2>Team conversations, together.</h2>
         <p>Sign in or create your account to open your workspaces.</p>
         {authError && <p role="alert">Sign-in could not be completed. Please try again. If this continues, report this code: {authError}</p>}
-        <SignInButton app={app} provider="google" label="Sign in with Google" />{' '}
-        <SignInButton app={app} provider="github" label="Sign in with GitHub" /></main>}
+        <div className="signin-actions"><SignInButton app={app} provider="google" label="Sign in with Google" />{' '}
+        <SignInButton app={app} provider="github" label="Sign in with GitHub" /></div></main>}
   </div>
 }
 
