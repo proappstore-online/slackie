@@ -196,3 +196,23 @@ a:focus-visible {
 }
 
 } /* end @layer base */
+
+@layer components {
+  .slackie-shell { max-width: 80rem; margin: auto; padding: 1rem; }
+  .slackie-header, .workspace-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; justify-content: space-between; padding-block: 1rem; }
+  .conversation-layout { display: grid; grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); gap: 2rem; }
+  .slackie-form { display: grid; gap: .75rem; margin-block: 1rem; }
+  .slackie-form label { display: grid; gap: .25rem; }
+  .slackie-shell input:not([type=checkbox]), .slackie-shell select, .slackie-shell textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: .5rem; padding: .6rem; background: var(--paper); color: var(--ink); }
+  .slackie-shell textarea { min-height: 6rem; }
+  .slackie-shell button, .slackie-shell summary { cursor: pointer; padding: .6rem; border: 1px solid var(--line-strong); border-radius: .5rem; }
+  .slackie-shell button:disabled { cursor: default; opacity: .6; }
+  .slackie-shell :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .slackie-shell [aria-current=page] { font-weight: 800; text-decoration: underline; }
+  .message-list { display: grid; gap: 1rem; margin-block: 1rem; }
+  .message-list li { border-block-end: 1px solid var(--line); padding-block: .5rem; }
+  .message-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .skip-link { position: absolute; transform: translateY(-300%); }
+  .skip-link:focus { position: static; transform: none; }
+  @media (max-width: 640px) { .conversation-layout { grid-template-columns: minmax(0, 1fr); } }
+}

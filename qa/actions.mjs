@@ -71,16 +71,16 @@ export function call(name, user, params = {}) {
 let checks = 0
 function ok(value, label) { if (!value) throw new Error(label); checks++; console.log('PASS ' + label) }
 function denied(name, user, params) {
-  const before = db.prepare('SELECT count(*) AS n FROM audit_log').get().n
+  const before = db.prepare('SELECT count(*) AS n FROM activity_log').get().n
   const result = call(name, user, params)
   ok(Array.isArray(result) && result.every(n => n === 0), name + ' refuses unauthorized mutation')
-  ok(db.prepare('SELECT count(*) AS n FROM audit_log').get().n === before, name + ' refusal has no audit')
+  ok(db.prepare('SELECT count(*) AS n FROM activity_log').get().n === before, name + ' refusal has no audit')
 }
 const W = { workspace_id: 'w1' }, C = { ...W, channel_id: 'c1' }, P = { ...W, channel_id: 'private' }
 const M = { ...C, message_id: 'm1' }, R = { ...M, emoji: 'thumbsup' }
 ok(Object.keys(TOOLS).length === 19, 'all 19 expected actions registered')
 ok(Object.values(TOOLS).every(t => t.requires_auth), 'all actions require authentication')
-ok(Object.values(TOOLS).filter(t => t.operation !== 'query').every(t => t.operation === 'batch' && t.statements.at(-1).includes('INSERT INTO audit_log')), 'all mutations end with guarded audit')
+ok(Object.values(TOOLS).filter(t => t.operation !== 'query').every(t => t.operation === 'batch' && t.statements.at(-1).includes('INSERT INTO activity_log')), 'all mutations end with guarded audit')
 for (const name of Object.keys(TOOLS)) {
   let rejected = false
   try { call(name, null, {}) } catch { rejected = true }
@@ -106,11 +106,13 @@ const samples = {
 call('workspace_member_add', 'owner', { ...W, user_id: 'admin', role: 'admin' })
 call('workspace_member_add', 'owner', { ...W, user_id: 'member' })
 call('workspace_member_add', 'owner', { ...W, user_id: 'reader' })
-ok(call('channel_create', 'member', { ...C, name: 'general' })[0] === 1, 'member creates public channel and joins atomically')
-ok(call('channel_create', 'member', { ...P, name: 'secret', is_private: 1 })[0] === 1, 'create private channel')
+ok(call('channel_create', 'admin', { ...C, name: 'general' })[0] === 1, 'admin creates public channel and joins atomically')
+ok(call('channel_create', 'admin', { ...P, name: 'secret', is_private: 1 })[0] === 1, 'create private channel')
 ok(call('channel_get', 'owner', P).length === 0, 'owner cannot read private metadata without membership')
 ok(call('channel_list', 'owner', W).every(c => c.id !== 'private'), 'private channel hidden in lists')
-ok(call('channel_get', 'member', P).length === 1, 'private member reads channel')
+ok(call('channel_get', 'admin', P).length === 1, 'private member reads channel')
+call('channel_member_add', 'admin', { ...P, user_id: 'member' })
+call('channel_join', 'member', C)
 for (const [name, params] of Object.entries(samples)) denied(name, 'outsider', params)
 ok(call('channel_get', 'outsider', C).length === 0, 'channel_get rejects outsider')
 ok(call('channel_list', 'outsider', W).length === 0, 'channel_list rejects outsider')
@@ -129,7 +131,7 @@ denied('channel_member_add', 'member', { ...C, user_id: 'reader' })
 ok(call('channel_member_add', 'admin', { ...C, user_id: 'reader' })[0] === 1, 'admin adds existing workspace member to public channel')
 denied('channel_member_add', 'admin', { ...C, user_id: 'other' })
 ok(call('channel_join', 'owner', C)[0] === 1, 'owner joins public channel')
-ok(call('channel_join', 'admin', C)[0] === 1, 'admin joins public channel')
+ok(call('channel_join', 'admin', C)[0] === 0, 'creator already joined; repeated join is idempotent')
 ok(call('message_send', 'member', { ...M, body: '<script>plain text</script>' })[0] === 1, 'channel member sends durable plain text')
 denied('message_send', 'member', { ...M, body: 'duplicate' })
 ok(call('message_list', 'member', C).filter(m => m.id === 'm1').length === 1, 'retry creates one message')
@@ -147,7 +149,8 @@ const readAt = db.prepare('SELECT last_read_at FROM channel_members WHERE channe
 call('channel_mark_read', 'reader', C)
 ok(db.prepare('SELECT last_read_at FROM channel_members WHERE channel_id = ? AND user_id = ?').get('c1', 'reader').last_read_at > readAt, 'read time advances monotonically')
 ok(call('message_delete', 'admin', M)[0] === 1, 'channel-member admin tombstones message')
-ok(call('message_list', 'reader', C)[0].body === '', 'tombstone hides prior body')
+ok(call('message_list', 'reader', C).length === 0, 'deleted messages omitted from timeline')
+ok(db.prepare("SELECT body,deleted_at FROM messages WHERE id = 'm1'").get().body === '', 'deleted body erased')
 denied('message_edit', 'member', { ...M, body: 'restore' })
 denied('reaction_add', 'reader', R)
 denied('message_delete', 'admin', M)
@@ -165,22 +168,46 @@ const privateMessage = { ...P, message_id: 'private-message' }
 call('message_send', 'member', { ...privateMessage, body: 'private content' })
 ok(call('message_list', 'owner', P).length === 0, 'owner cannot read private messages')
 denied('message_delete', 'owner', privateMessage)
-denied('message_edit', 'admin', { ...privateMessage, body: 'overwrite' })
+denied('message_edit', 'owner', { ...privateMessage, body: 'overwrite' })
 denied('reaction_add', 'owner', { ...privateMessage, emoji: 'x' })
 denied('channel_create', 'member', { ...C, name: 'general' })
 // Audit insertion failure rolls back the mutation in the same transaction.
-db.exec("CREATE TRIGGER reject_audit BEFORE INSERT ON audit_log BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END")
+db.exec("CREATE TRIGGER reject_audit BEFORE INSERT ON activity_log BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END")
 let rolledBack = false
 try { call('message_send', 'member', { ...C, message_id: 'rollback', body: 'must roll back' }) } catch { rolledBack = true }
 ok(rolledBack && db.prepare("SELECT count(*) AS n FROM messages WHERE id = 'rollback'").get().n === 0, 'failed audit rolls back message write')
 db.exec('DROP TRIGGER reject_audit')
 // Keyset cursor tie-breaks and fixed page size.
-for (let i = 0; i < 55; i++) db.prepare('INSERT INTO messages VALUES (?,?,?,?,?,?,?,?)').run('page-' + String(i).padStart(2,'0'),'c1','w1','member','page',100,100,0)
+for (let i = 0; i < 55; i++) db.prepare('INSERT INTO messages(id,channel_id,workspace_id,user_id,body,created_at,updated_at,is_deleted) VALUES (?,?,?,?,?,?,?,?)').run('page-' + String(i).padStart(2,'0'),'c1','w1','member','page',100,100,0)
 const firstPage = call('message_list', 'member', C)
 ok(firstPage.length === 50, 'timeline page is bounded')
 const last = firstPage.at(-1)
-const nextPage = call('message_list', 'member', { ...C, before_at: last.created_at, before_id: last.id })
-ok(!nextPage.some(n => firstPage.some(p => p.id === n.id)) && firstPage.length + nextPage.length === 56, 'keyset pagination loses no equal-timestamp rows')
+const nextPage = call('message_list', 'member', { ...C, before_id: last.id })
+ok(!nextPage.some(n => firstPage.some(p => p.id === n.id)) && firstPage.length + nextPage.length === 55, 'keyset pagination loses no equal-timestamp rows')
 // Every authenticated outsider/cross-tenant refusal above also proves no audit disclosure/write.
-ok(!JSON.stringify(db.prepare('SELECT * FROM audit_log').all()).includes('plain text'), 'audit excludes message content')
+ok(!JSON.stringify(db.prepare('SELECT * FROM activity_log').all()).includes('plain text'), 'audit excludes message content')
+denied('channel_create', 'member', { ...W, channel_id: 'member-created', name: 'forbidden' })
+ok(call('message_list', 'member', { ...C, limit: 2 }).length === 2, 'requested page limit respected')
+ok(call('message_list', 'member', { ...C, limit: -1 }).length === 1, 'negative limit cannot expose unbounded history')
+ok(call('message_list', 'member', { ...C, before_id: 'private-message' }).length === 0, 'cross-channel cursor does not expose messages')
+ok(call('message_list', 'member', { ...C, before_id: 'missing' }).length === 0, 'unknown cursor fails closed')
+ok(db.prepare("SELECT deleted_at FROM messages WHERE id = 'm1'").get().deleted_at !== null, 'delete stores server timestamp')
+ok(db.prepare("SELECT edited_at FROM messages WHERE id = 'm1'").get().edited_at !== null, 'edit stores server timestamp')
+db.exec("UPDATE channels SET is_archived = 1 WHERE id = 'c1'")
+denied('message_send', 'member', { ...C, message_id: 'archived-write', body: 'no' })
+denied('message_edit', 'member', { ...C, message_id: 'page-01', body: 'no' })
+denied('reaction_add', 'member', { ...C, message_id: 'page-01', emoji: 'x' })
+ok(call('message_list', 'member', C).length === 50, 'archive preserves authorized history')
+// Reapply the new migration to a populated legacy schema in isolation.
+const legacy = new DatabaseSync(':memory:')
+legacy.exec('PRAGMA foreign_keys = ON')
+const migrations = read('../migrations.json').migrations
+for (const m of migrations.slice(0, 4)) legacy.exec(m.sql)
+legacy.exec("INSERT INTO workspaces VALUES ('old','Old','old',NULL,'old-owner',1)")
+legacy.exec("INSERT INTO channels VALUES ('old-channel','old','general','',0,'old-owner',1); INSERT INTO messages VALUES ('old-message','old-channel','old','old-owner','',1,2,1); INSERT INTO reactions VALUES ('old-message','old-owner','x','old',1); INSERT INTO audit_log VALUES ('old-audit','old','old-owner','message_delete','old-message',2)")
+legacy.exec(migrations[4].sql)
+ok(legacy.prepare('SELECT deleted_at FROM messages').get().deleted_at === 2, 'migration preserves legacy deletion state')
+ok(legacy.prepare('SELECT channel_id FROM message_reactions').get().channel_id === 'old-channel', 'migration copies scoped reactions')
+ok(legacy.prepare('SELECT entity_id FROM activity_log').get().entity_id === 'old-message', 'migration preserves audit history')
+legacy.close()
 console.log('Passed ' + checks + ' assertions across all 19 actions.')

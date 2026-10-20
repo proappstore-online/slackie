@@ -3,12 +3,8 @@
   "private": true,
   "packageManager": "pnpm@10.30.3",
   "engines": {
-    "node": ">=22.13"
+    "node": ">=22"
   },
-  "workspaces": [
-    "web",
-    "qa"
-  ],
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
@@ -19,7 +15,13 @@
     "prebuild": "npx -y @proappstore/cli@latest check",
     "build": "pnpm --filter @slackie/web build",
     "preview": "pnpm --filter @slackie/web preview",
+    "lint": "echo 'Lint configured per app; extend lintstagedrc.json with eslint/prettier'",
     "typecheck": "pnpm --filter @slackie/web exec tsc -b",
-    "test": "pnpm typecheck && node --no-warnings qa/actions.mjs"
+    "test": "pnpm --filter @slackie/web exec tsc -b && node --no-warnings qa/actions.mjs",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.12"
   }
 }

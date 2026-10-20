@@ -35,9 +35,9 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: 'Slackie',
-        short_name: 'Slackie',
-        description: 'Slackie',
+        name: 'slackie',
+        short_name: 'slackie',
+        description: 'slackie',
         start_url: '/',
         scope: '/',
         display: 'standalone',
