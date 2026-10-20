@@ -46,17 +46,22 @@ function bind(sql, resolved, user, now) {
   return [bound, values]
 }
 
+let fixedNow = null
+let failWriteTo = null
 let clock = Date.now()
 export function call(name, user, params = {}) {
   const tool = TOOLS[name]
   if (!tool) throw new Error(`no such action: ${name}`)
   if (tool.requires_auth && !user) throw new Error("Authentication required")
   const resolved = resolve(tool, params)
-  const now = ++clock
+  const now = fixedNow ?? ++clock
   if (tool.operation === 'batch') {
     db.exec('BEGIN')
     try {
-      const changes = tool.statements.map((s) => { const [sql, v] = bind(s, resolved, user, now); return db.prepare(sql).run(...v).changes })
+      const changes = tool.statements.map((s) => {
+        if ((failWriteTo === 'finalize' && s.startsWith('UPDATE activity_log')) || (failWriteTo && s.startsWith('INSERT INTO ' + failWriteTo))) throw new Error('simulated storage failure')
+        const [sql, v] = bind(s, resolved, user, now); return db.prepare(sql).run(...v).changes
+      })
       db.exec('COMMIT')
       return changes
     } catch (e) { db.exec('ROLLBACK'); throw e }
@@ -80,7 +85,7 @@ const W = { workspace_id: 'w1' }, C = { ...W, channel_id: 'c1' }, P = { ...W, ch
 const M = { ...C, message_id: 'm1' }, R = { ...M, emoji: 'thumbsup' }
 ok(Object.keys(TOOLS).length === 47, 'all 47 expected actions registered')
 ok(Object.values(TOOLS).every(t => t.requires_auth), 'all actions require authentication')
-ok(Object.values(TOOLS).filter(t => t.operation !== 'query').every(t => t.operation === 'batch' && t.statements.at(-1).includes('INSERT INTO audit_log')), 'all mutations end with guarded audit')
+ok(Object.values(TOOLS).filter(t => t.operation !== 'query').every(t => t.operation === 'batch' && t.statements.some(s => s.startsWith('INSERT INTO audit_log')) && t.statements.some(s => s.startsWith('INSERT INTO activity_log'))), 'all mutations write guarded audit and activity records')
 for (const name of Object.keys(TOOLS)) {
   let rejected = false
   try { call(name, null, {}) } catch { rejected = true }
@@ -174,11 +179,11 @@ denied('message_edit', 'owner', { ...privateMessage, body: 'overwrite' })
 denied('reaction_add', 'owner', { ...privateMessage, emoji: 'x' })
 denied('channel_create', 'member', { ...C, name: 'general' })
 // Audit insertion failure rolls back the mutation in the same transaction.
-db.exec("CREATE TRIGGER reject_audit BEFORE INSERT ON activity_log BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END")
+failWriteTo = 'activity_log'
 let rolledBack = false
 try { call('message_send', 'member', { ...C, message_id: 'rollback', body: 'must roll back' }) } catch { rolledBack = true }
 ok(rolledBack && db.prepare("SELECT count(*) AS n FROM messages WHERE id = 'rollback'").get().n === 0, 'failed audit rolls back message write')
-db.exec('DROP TRIGGER reject_audit')
+failWriteTo = null
 // Keyset cursor tie-breaks and fixed page size.
 for (let i = 0; i < 55; i++) db.prepare('INSERT INTO messages(id,channel_id,workspace_id,user_id,body,created_at,updated_at,is_deleted) VALUES (?,?,?,?,?,?,?,?)').run('page-' + String(i).padStart(2,'0'),'c1','w1','member','page',100,100,0)
 const firstPage = call('message_list', 'member', C)
@@ -200,26 +205,15 @@ denied('message_send', 'member', { ...C, message_id: 'archived-write', body: 'no
 denied('message_edit', 'member', { ...C, message_id: 'page-01', body: 'no' })
 denied('reaction_add', 'member', { ...C, message_id: 'page-01', emoji: 'x' })
 ok(call('message_list', 'member', C).length === 50, 'archive preserves authorized history')
-// Reapply the new migration to a populated legacy schema in isolation.
-const legacy = new DatabaseSync(':memory:')
-legacy.exec('PRAGMA foreign_keys = ON')
-const migrations = read('../migrations.json').migrations
-for (const m of migrations.slice(0, 4)) legacy.exec(m.sql)
-legacy.exec("INSERT INTO workspaces VALUES ('old','Old','old',NULL,'old-owner',1)")
-legacy.exec("INSERT INTO channels VALUES ('old-channel','old','general','',0,'old-owner',1); INSERT INTO messages VALUES ('old-message','old-channel','old','old-owner','',1,2,1); INSERT INTO reactions VALUES ('old-message','old-owner','x','old',1); INSERT INTO audit_log VALUES ('old-audit','old','old-owner','message_delete','old-message',2)")
-legacy.exec(migrations[4].sql)
-ok(legacy.prepare('SELECT deleted_at FROM messages').get().deleted_at === 2, 'migration preserves legacy deletion state')
-ok(legacy.prepare('SELECT channel_id FROM message_reactions').get().channel_id === 'old-channel', 'migration copies scoped reactions')
-ok(legacy.prepare('SELECT entity_id FROM activity_log').get().entity_id === 'old-message', 'migration preserves audit history')
-legacy.exec(migrations[5].sql)
-ok(legacy.prepare('SELECT target_id FROM audit_log').get().target_id === 'old-message', 'new migration preserves legacy audit')
-legacy.exec("INSERT INTO audit_log VALUES ('new-audit','old','old-owner','edit_message','old-message',3)")
-ok(legacy.prepare("SELECT count(*) AS n FROM activity_log WHERE id = 'new-audit'").get().n === 1, 'audit bridge records exactly one activity item')
-legacy.exec(migrations[6].sql)
-ok(legacy.prepare('SELECT parent_id,deleted_at FROM messages').get().parent_id===null && legacy.prepare('SELECT deleted_at FROM messages').get().deleted_at===2,'thread migration preserves legacy roots and deletion timestamps')
-legacy.exec("INSERT INTO workspace_members(workspace_id,user_id,role,joined_at) VALUES ('old','old-owner','owner',1)")
-ok(legacy.prepare('SELECT mention_handle FROM workspace_members').get().mention_handle.startsWith('uid-'),'new legacy member gets unique fallback mention handle')
-legacy.close()
+// The empty production schema uses one final, DDL-only baseline.
+const baseline = read('../migrations.json').migrations
+ok(baseline.length === 1 && baseline[0].name === '0001_baseline', 'one named baseline migration')
+ok(db.prepare("SELECT count(*) AS n FROM sqlite_schema WHERE type = 'trigger'").get().n === 0, 'baseline has no implicit write logic')
+ok(!/\b(UPDATE|DELETE|DROP|CASCADE)\b/i.test(baseline[0].sql), 'baseline contains only additive schema')
+ok(db.prepare('SELECT mention_handle FROM workspace_members WHERE workspace_id=? AND user_id=?').get('w1','owner').mention_handle === 'uid-' + Buffer.from('owner').toString('hex'), 'workspace owner receives default mention handle')
+ok(db.prepare('SELECT mention_handle FROM workspace_members WHERE workspace_id=? AND user_id=?').get('w1','member').mention_handle === 'uid-' + Buffer.from('member').toString('hex'), 'added member receives default mention handle')
+ok(db.prepare('SELECT count(*) AS n FROM audit_log a LEFT JOIN activity_log l ON l.id=a.id WHERE l.id IS NULL').get().n === 0, 'every audit record has matching activity')
+ok(db.prepare("SELECT count(*) AS n FROM activity_log WHERE changes != '{}'").get().n === 0, 'no unfinished operation markers survive a batch')
 
 // New collaboration actions and their independent authorization boundaries.
 const NW = { workspace_id: 'collab' }
@@ -374,9 +368,6 @@ denied('thread_reply','alice',{...reply,channel_id:AP.channel_id,message_id:'cro
 denied('thread_reply','alice',{...reply,workspace_id:'w2',message_id:'cross-workspace-parent'})
 denied('thread_reply','alice',{...reply,message_id:'empty-reply',content:'  '})
 denied('thread_reply','alice',{...reply,message_id:'large-reply',content:'x'.repeat(10001)})
-let invalidRoot=false
-try{db.prepare('INSERT INTO messages(id,workspace_id,channel_id,user_id,body,created_at,updated_at,parent_id) VALUES (?,?,?,?,?,?,?,?)').run('raw-bad-root','attention',AP.channel_id,'alice','no',clock,clock,ROOT.message_id)}catch{invalidRoot=true}
-ok(invalidRoot,'schema trigger refuses cross-channel root even outside action guard')
 ok(call('list_mentions','alice',AW).filter(m=>m.message_id===ROOT.message_id).length===1,'repeated/case-insensitive mention yields one recipient')
 ok(call('list_mentions','bob',AW).every(m=>m.message_id!==ROOT.message_id),'emails, handle prefixes and double-at do not mention')
 ok(call('list_mentions','bob',AW).find(m=>m.message_id===reply.message_id).root_id===ROOT.message_id,'reply mention retains root navigation')
@@ -404,11 +395,11 @@ ok(call('list_mentions','bob',AW).every(m=>m.message_id!=='private-mention'),'jo
 call('send_message','alice',{...AP,message_id:'private-mention-active',content:'Hello (@bob)!'})
 ok(call('list_mentions','bob',AW).some(m=>m.message_id==='private-mention-active'),'active private member receives bounded-token mention')
 // Mention/audit failure must roll back both the message and derived recipients.
-db.exec("CREATE TRIGGER block_attention_audit BEFORE INSERT ON audit_log BEGIN SELECT RAISE(ABORT,'audit unavailable'); END")
+failWriteTo = 'audit_log'
 let aborted=false
 try{call('thread_reply','alice',{...reply,message_id:'attention-abort',content:'@bob rollback'})}catch{aborted=true}
 ok(aborted&&db.prepare("SELECT COUNT(*) AS n FROM messages WHERE id='attention-abort'").get().n===0&&db.prepare("SELECT COUNT(*) AS n FROM mentions WHERE message_id='attention-abort'").get().n===0,'reply, mentions and audit share one transaction')
-db.exec('DROP TRIGGER block_attention_audit')
+failWriteTo = null
 for(let i=0;i<55;i++)call('thread_reply','alice',{...reply,message_id:'paged-reply-'+i,content:'Reply '+i})
 const threadPage=call('list_thread','bob',thread),threadNext=call('list_thread','bob',{...thread,before_id:threadPage.at(-1).id})
 ok(threadPage.length===50&&threadNext.length===6,'thread pagination is bounded and complete')
@@ -419,6 +410,7 @@ ok(call('get_thread_root','alice',thread)[0].deleted_at!==null&&call('get_thread
 ok(call('list_thread','alice',thread).length===50,'authorized reply history survives root tombstone')
 denied('thread_reply','alice',{...reply,message_id:'deleted-parent'})
 ok(call('list_mentions','bob',AW).every(m=>m.message_id!==ROOT.message_id),'deleted message disappears from mention inbox')
+ok(db.prepare('SELECT count(*) AS n FROM mentions WHERE message_id=?').get(ROOT.message_id).n === 0, 'message deletion physically cleans derived mentions')
 call('join_channel','bob',{...AW,channel_id:'attention-lounge'})
 call('leave_channel','bob',AC)
 ok(call('list_thread','bob',thread).length===0,'channel leave immediately revokes thread reads')
@@ -451,4 +443,35 @@ ok(new Set([...mentionPage,...mentionNext].map(row=>row.message_id)).size===55,'
 ok(call('get_mention_count','receiver',PW)[0].count===55,'badge counts unread beyond the visible page')
 call('send_message','sender',{...PC,message_id:'dense-mentions',content:' @reader'.repeat(1200)})
 ok(call('list_mentions','receiver',PW).filter(row=>row.message_id==='dense-mentions').length===1,'dense repeated mentions create one attention item per recipient')
+// Both compatibility names must derive mentions and activity without schema-side writes.
+const FW = { workspace_id: 'baseline-actions' }, FC = { ...FW, channel_id: 'baseline-channel' }
+call('workspace_create', 'base-owner', { ...FW, name: 'Baseline', slug: 'baseline-actions' })
+call('workspace_member_add', 'base-owner', { ...FW, user_id: 'base-reader' })
+call('create_channel', 'base-owner', { ...FC, name: 'general' })
+call('join_channel', 'base-reader', FC)
+const fallback = 'uid-' + Buffer.from('base-reader').toString('hex')
+for (const [send, edit, remove, field] of [['message_send','message_edit','message_delete','body'], ['send_message','edit_message','delete_message','content']]) {
+ const scope = { ...FC, message_id: send + '-baseline' }
+ fixedNow = ++clock
+ call(send, 'base-owner', { ...scope, [field]: 'hello @' + fallback })
+ ok(db.prepare('SELECT count(*) AS n FROM mentions WHERE message_id=?').get(scope.message_id).n === 1, send + ' extracts default-handle mention')
+ denied(send, 'base-owner', { ...scope, [field]: 'retry' })
+ call('acknowledge_mention','base-reader',scope)
+ const originalSeen = db.prepare('SELECT seen_at FROM mentions WHERE message_id=?').get(scope.message_id).seen_at
+ call(edit, 'base-owner', { ...scope, [field]: 'edited @' + fallback })
+ denied(edit, 'base-owner', { ...scope, [field]: 'edited @' + fallback })
+ ok(db.prepare('SELECT seen_at FROM mentions WHERE message_id=?').get(scope.message_id).seen_at === originalSeen, edit + ' same-clock retry preserves seen state')
+ failWriteTo = 'finalize'
+ let failed = false
+ try { call(edit, 'base-owner', { ...scope, [field]: 'remove recipient' }) } catch { failed = true }
+ failWriteTo = null
+ ok(failed && db.prepare('SELECT count(*) AS n FROM mentions WHERE message_id=?').get(scope.message_id).n === 1, edit + ' rolls back derived cleanup on later failure')
+ call(remove, 'base-owner', scope)
+ denied(remove, 'base-owner', scope)
+ ok(db.prepare('SELECT count(*) AS n FROM mentions WHERE message_id=?').get(scope.message_id).n === 0, remove + ' removes mention rows')
+ fixedNow = null
+}
+ok(db.prepare('PRAGMA foreign_key_check').all().length === 0, 'all action batches preserve foreign keys')
+ok(db.prepare('SELECT count(*) AS n FROM audit_log a LEFT JOIN activity_log l ON l.id=a.id WHERE l.id IS NULL').get().n === 0, 'all successful actions mirror activity exactly once')
+ok(db.prepare("SELECT count(*) AS n FROM activity_log WHERE changes != '{}'").get().n === 0, 'all operation markers finalized')
 console.log('Passed ' + checks + ' assertions across all '+Object.keys(TOOLS).length+' actions.')

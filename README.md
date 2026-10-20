@@ -52,9 +52,11 @@ not supply those services.
 
 ## Deployment
 
-Deployment targets PAS hosting and is managed through the platform. No PAS app,
-database, worker, or public route has been provisioned or deployed from this
-repository, and no deployment workflow is enabled.
+Pushes to `main` invoke the PAS reusable deployment workflow: apply the committed
+`0001_baseline`, register authenticated actions, then upload the frontend to
+https://slackie.proappstore.online. Schema contains no triggers or cascades; action
+batches maintain member handles, mentions, activity records, and membership cleanup.
+See [baseline and action invariants](docs/baseline-actions.md).
 
 ## Design library
 
