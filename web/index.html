@@ -24,11 +24,27 @@
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <script>
       (function() {
-        var pref = localStorage.getItem('stores-theme') || 'system';
-        var dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-        if (dark) document.documentElement.dataset.theme = 'dark';
-        var text = localStorage.getItem('stores-text-size');
-        if (text === 'lg' || text === 'sm') document.documentElement.dataset.text = text;
+        var pref = 'system';
+        try {
+          var stored = localStorage.getItem('stores-theme');
+          if (stored === 'light' || stored === 'dark') pref = stored;
+          var text = localStorage.getItem('stores-text-size');
+          if (text === 'lg' || text === 'sm') document.documentElement.dataset.text = text;
+        } catch (_) { /* Storage restrictions must not prevent system preferences. */ }
+        var scheme = matchMedia('(prefers-color-scheme: dark)');
+        function applyTheme() {
+          var dark = pref === 'dark' || (pref === 'system' && scheme.matches);
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+          document.getElementById('theme-color').content = dark ? '#000000' : '#ffffff';
+        }
+        applyTheme();
+        scheme.addEventListener('change', applyTheme);
+        addEventListener('storage', function(event) {
+          if (event.key === 'stores-theme' || event.key === null) {
+            pref = event.newValue === 'light' || event.newValue === 'dark' ? event.newValue : 'system';
+            applyTheme();
+          }
+        });
       })();
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />

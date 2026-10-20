@@ -17,7 +17,7 @@
     "preview": "pnpm --filter @slackie/web preview",
     "lint": "echo 'Lint configured per app; extend lintstagedrc.json with eslint/prettier'",
     "typecheck": "pnpm --filter @slackie/web exec tsc -b",
-    "test": "pnpm --filter @slackie/web exec tsc -b && node --no-warnings qa/actions.mjs",
+    "test": "pnpm --filter @slackie/web exec tsc -b && node --no-warnings qa/actions.mjs && node qa/contrast.mjs",
     "test:browser": "playwright test",
     "prepare": "husky install"
   },

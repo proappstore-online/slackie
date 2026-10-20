@@ -9,7 +9,9 @@
   --ink: #111111;
   --muted: #666666;
   --line: rgba(0, 0, 0, 0.08);
-  --line-strong: rgba(0, 0, 0, 0.14);
+  --line-strong: #767676;
+  --focus: #245b73;
+  --disabled: #666666;
   --panel: rgba(255, 255, 255, 0.72);
   --panel-strong: rgba(255, 255, 255, 0.88);
   --panel-quiet: rgba(255, 255, 255, 0.6);
@@ -22,9 +24,9 @@
   --mint: #4d9a6a;
   --mint-soft: #cce7d5;
   --mint-deep: #2b6b44;
-  --success: #2f8f57;
-  --warning: #c6862a;
-  --danger: #dc2626;
+  --success: #246b41;
+  --warning: #805215;
+  --danger: #b91c1c;
   --danger-soft: #fef2f2;
   --accent-gradient: linear-gradient(135deg, rgba(216, 111, 77, 0.18), rgba(255, 255, 255, 0.9));
   --warm-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 212, 191, 0.24));
@@ -57,7 +59,9 @@
   --ink: #f0f0f0;
   --muted: #888888;
   --line: rgba(255, 255, 255, 0.08);
-  --line-strong: rgba(255, 255, 255, 0.14);
+  --line-strong: #888888;
+  --focus: #89cbe5;
+  --disabled: #aaaaaa;
   --panel: rgba(18, 18, 18, 0.8);
   --panel-strong: rgba(18, 18, 18, 0.92);
   --panel-quiet: rgba(22, 22, 22, 0.8);
@@ -98,8 +102,7 @@ html {
 
 body {
   min-height: 100dvh;
-  -webkit-user-select: none;
-  user-select: none;
+  line-height: 1.5;
   background:
     radial-gradient(circle at top left, var(--bg-blob-1), transparent 32%),
     radial-gradient(circle at top right, var(--bg-blob-2), transparent 30%),
@@ -191,7 +194,7 @@ button:active {
 
 button:focus-visible,
 a:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--sky) 52%, white);
+  outline: 2px solid var(--focus);
   outline-offset: 3px;
 }
 
@@ -207,16 +210,27 @@ a:focus-visible {
 } /* end @layer base */
 
 @layer components {
-  .slackie-shell { max-width: 80rem; margin: auto; padding: 1rem; }
+  .slackie-shell { max-width: 80rem; min-height: 100dvh; margin: auto; padding: 1rem; background: var(--paper); }
   .slackie-header, .workspace-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; justify-content: space-between; padding-block: 1rem; }
   .conversation-layout { display: grid; grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); gap: 2rem; }
   .slackie-form { display: grid; gap: .75rem; margin-block: 1rem; }
   .slackie-form label { display: grid; gap: .25rem; }
   .slackie-shell input:not([type=checkbox]), .slackie-shell select, .slackie-shell textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: .5rem; padding: .6rem; background: var(--paper); color: var(--ink); }
+  .slackie-shell h1 { font-size: 2rem; font-weight: 800; line-height: 1.2; }
+  .slackie-shell h2 { font-size: 1.5rem; font-weight: 700; line-height: 1.3; }
+  .slackie-shell h3 { font-size: 1.125rem; font-weight: 700; }
+  .slackie-shell small, .slackie-shell time { font-size: .875rem; }
+  .slackie-shell button, .slackie-shell summary, .slackie-shell select { min-height: 2.75rem; }
+  .slackie-shell button { background: var(--paper); color: var(--ink); }
+  .slackie-shell button:not(:disabled):hover, .slackie-shell summary:hover { background: var(--paper-deep); }
+  .slackie-shell [aria-current=page], .slackie-shell [aria-pressed=true] { border-color: var(--focus); background: var(--paper-deep); font-weight: 800; text-decoration: underline; }
+  .slackie-shell [role=alert] { color: var(--danger); background: var(--danger-soft); border-inline-start: 3px solid var(--danger); padding: .5rem; }
+  .slackie-shell input[aria-invalid=true], .slackie-shell textarea[aria-invalid=true], .slackie-shell select[aria-invalid=true] { border: 2px solid var(--danger); }
+  .slackie-shell a { color: var(--focus); text-decoration: underline; }
   .slackie-shell textarea { min-height: 6rem; }
   .slackie-shell button, .slackie-shell summary { cursor: pointer; padding: .6rem; border: 1px solid var(--line-strong); border-radius: .5rem; }
-  .slackie-shell button:disabled { cursor: default; opacity: .6; }
-  .slackie-shell :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .slackie-shell button:disabled { cursor: default; opacity: 1; color: var(--disabled); background: var(--paper-deep); }
+  .slackie-shell :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
   .slackie-shell [aria-current=page] { font-weight: 800; text-decoration: underline; }
   .message-list { display: grid; gap: 1rem; margin-block: 1rem; }
   .message-list li { border-block-end: 1px solid var(--line); padding-block: .5rem; }
@@ -259,6 +273,10 @@ a:focus-visible {
     .slackie-shell input, .slackie-shell select, .slackie-shell textarea,
     .role-badge, dialog { border-color: ButtonText; }
     .slackie-shell button:disabled { color: GrayText; opacity: 1; }
+    .slackie-shell [role=alert] { color: CanvasText; background: Canvas; border-color: CanvasText; }
+    .slackie-shell input[aria-invalid=true], .slackie-shell textarea[aria-invalid=true], .slackie-shell select[aria-invalid=true] { border-color: CanvasText; border-style: dashed; }
+    .slackie-shell [aria-current=page], .slackie-shell [aria-pressed=true] { border-color: Highlight; }
+    .slackie-shell a { color: LinkText; }
     .message-actions { opacity: 1; }
     dialog::backdrop { background: Canvas; opacity: .75; }
   }

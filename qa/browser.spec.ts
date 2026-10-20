@@ -493,3 +493,35 @@ test('workspace creation explains a server refusal', async ({ page }) => {
   await expect(page.getByRole('alert')).toContainText('Workspace name must be lowercase with no spaces')
   await expect(page.getByLabel('Name', { exact: true })).toHaveValue('my-workspace')
 })
+
+test('system scheme changes live and explicit preference wins', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' })
+  await fixture(page)
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme', 'dark')
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await page.evaluate(() => localStorage.setItem('stores-theme', 'light'))
+  await page.reload()
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme', 'dark')
+  await page.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'stores-theme', newValue: 'dark' })))
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+})
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`${colorScheme} controls show focus, invalid and disabled states`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme, reducedMotion: 'reduce' })
+    await fixture(page, false, { noWorkspace: true })
+    await page.getByText('Create a workspace', { exact: true }).click()
+    const input = page.getByLabel('Name', { exact: true })
+    await input.fill('Invalid Name')
+    await expect(input).toHaveCSS('border-top-width', '2px')
+    await expect(page.getByRole('alert')).toHaveCSS('border-left-width', '3px')
+    await expect(page.getByRole('button', { name: 'Create workspace', exact: true })).toHaveCSS('opacity', '1')
+    await input.focus()
+    await expect(input).toHaveCSS('outline-width', '2px')
+    await expect(input).toHaveCSS('outline-style', 'solid')
+    await page.emulateMedia({ forcedColors: 'active' })
+    await expect(input).toHaveCSS('border-top-style', 'dashed')
+    await expect(input).toHaveCSS('forced-color-adjust', 'auto')
+  })
+}

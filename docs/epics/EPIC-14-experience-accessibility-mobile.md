@@ -49,3 +49,7 @@ Remaining design/review follow-ups (not build-ready task approvals):
 Each follow-up must record its decisions and review before creating build-ready
 child tasks. Automated browser checks do not complete the manual acceptance
 criteria in this epic.
+
+Issue #24 implementation decisions and measured contrast are recorded in
+[visual-system.md](../visual-system.md). E14.1 remains unchecked pending the real
+Windows contrast-theme review specified in that record.

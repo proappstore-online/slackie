@@ -94,3 +94,12 @@ computed behavior and keyboard focus. They do not establish WCAG conformance or
 replace NVDA/VoiceOver, real high-contrast themes, and 200-400% zoom review.
 The remaining E14 decisions stay open; child issues must close their design gates
 before splitting build-ready work. E14.1 is only partially implemented.
+
+## E14.1 visual system follow-up (2026-10-21)
+
+The component inventory, palette/contrast measurements, typography, spacing,
+responsive/density choices, theme precedence and state review are recorded in
+[visual-system.md](visual-system.md). That record supersedes the first slice's
+unchanged-normal-appearance boundary. Implementation and automated review are
+recorded there; real Windows contrast-theme acceptance remains pending. No
+build-ready child tasks are approved by this record.
