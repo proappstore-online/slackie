@@ -1,10 +1,9 @@
 # Slackie
 
-Slackie is a proposed team communication app for ProAppStore. It is a design-only
-repository: it contains the product definition, system design, decisions, and
-delivery backlog required to start a future build. It intentionally contains no
-application source, platform resource configuration, credentials, or deployment
-workflow.
+Slackie is a team communication app foundation for ProAppStore. This repository
+contains the design library, registered SQL actions, additive migrations, a
+React/Vite loading shell, and local authorization tests. It is not a usable or
+production-ready messaging app yet. No deployment workflow is enabled.
 
 ## Product in one sentence
 
@@ -13,8 +12,13 @@ direct messages, and threads without the complexity of an enterprise suite.
 
 ## Current status
 
-Discovery and technical design. No PAS app, database, worker, or public route
-has been provisioned from this repository.
+Foundation scaffold. No PAS app, database, worker, or public route has been
+provisioned from this repository. See [implementation status](docs/implementation-foundation.md)
+for the provisional schema and remaining release gates.
+
+Requires Node >=22.13 and pnpm 10.30.3. Run `pnpm install`, `pnpm test`, and
+`pnpm build`. `pnpm dev` serves the loading shell; hosted PAS actions require
+separate platform setup. `pnpm build` runs the platform compliance check first.
 
 ## Design library
 

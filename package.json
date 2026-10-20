@@ -1,0 +1,25 @@
+{
+  "name": "slackie",
+  "private": true,
+  "packageManager": "pnpm@10.30.3",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "workspaces": [
+    "web",
+    "qa"
+  ],
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "scripts": {
+    "dev": "pnpm --filter @slackie/web dev",
+    "prebuild": "npx -y @proappstore/cli@latest check",
+    "build": "pnpm --filter @slackie/web build",
+    "preview": "pnpm --filter @slackie/web preview",
+    "typecheck": "pnpm --filter @slackie/web exec tsc -b",
+    "test": "pnpm typecheck && node --no-warnings qa/actions.mjs"
+  }
+}

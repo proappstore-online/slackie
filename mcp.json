@@ -1,0 +1,431 @@
+{
+  "tools": [
+    {
+      "name": "workspace_create",
+      "description": "workspace create. Refused writes change zero rows; audit contains no message body.",
+      "operation": "batch",
+      "statements": [
+        "INSERT OR IGNORE INTO workspaces(id,name,slug,created_by,created_at) SELECT :workspace_id, :name, :slug, :__user_id, :__now WHERE length(:workspace_id) BETWEEN 1 AND 128 AND length(trim(:name)) BETWEEN 1 AND 100 AND length(:slug) BETWEEN 1 AND 80 AND :slug NOT GLOB '*[^a-z0-9-]*'",
+        "INSERT OR IGNORE INTO workspace_members(workspace_id,user_id,role,joined_at) SELECT id,:__user_id,'owner',:__now FROM workspaces WHERE id = :workspace_id AND created_by = :__user_id AND created_at = :__now AND changes() > 0",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'workspace_create', :workspace_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "name": {
+          "type": "string",
+          "description": "Workspace name"
+        },
+        "slug": {
+          "type": "string",
+          "description": "Unique workspace slug"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "workspace_get",
+      "description": "workspace get",
+      "operation": "query",
+      "sql": "SELECT w.id,w.name,w.slug,w.icon_url,w.created_at,me.role FROM workspaces w JOIN workspace_members me ON me.workspace_id = w.id AND me.user_id = :__user_id WHERE w.id = :workspace_id LIMIT 1",
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "workspace_list",
+      "description": "workspace list",
+      "operation": "query",
+      "sql": "SELECT w.id,w.name,w.slug,w.icon_url,w.created_at,me.role FROM workspaces w JOIN workspace_members me ON me.workspace_id = w.id WHERE me.user_id = :__user_id ORDER BY w.created_at,w.id LIMIT 100",
+      "params": {},
+      "requires_auth": true
+    },
+    {
+      "name": "workspace_member_add",
+      "description": "workspace member add. Refused writes change zero rows; audit contains no message body.",
+      "operation": "batch",
+      "statements": [
+        "INSERT OR IGNORE INTO workspace_members(workspace_id,user_id,role,joined_at) SELECT :workspace_id,:user_id,:role,:__now WHERE EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin')) AND (:role = 'member' OR (:role = 'admin' AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role = 'owner'))) AND length(:user_id) BETWEEN 1 AND 128",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'workspace_member_add', :user_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "user_id": {
+          "type": "string",
+          "description": "Platform user id"
+        },
+        "role": {
+          "type": "string",
+          "description": "member or admin; only owner grants admin",
+          "default": "member"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "workspace_member_remove",
+      "description": "workspace member remove. Refused writes change zero rows; audit contains no message body.",
+      "operation": "batch",
+      "statements": [
+        "DELETE FROM workspace_members WHERE workspace_id = :workspace_id AND user_id = :user_id AND user_id != :__user_id AND role != 'owner' AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin')) AND (role = 'member' OR EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role = 'owner'))",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'workspace_member_remove', :user_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "user_id": {
+          "type": "string",
+          "description": "Member to remove"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "workspace_member_role_set",
+      "description": "workspace member role set. Refused writes change zero rows; audit contains no message body.",
+      "operation": "batch",
+      "statements": [
+        "UPDATE workspace_members SET role = :role WHERE workspace_id = :workspace_id AND user_id = :user_id AND role != 'owner' AND role != :role AND :role IN ('admin','member') AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role = 'owner')",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'workspace_member_role_set', :user_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "user_id": {
+          "type": "string",
+          "description": "Member to update"
+        },
+        "role": {
+          "type": "string",
+          "description": "admin or member; ownership transfer is deferred"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "channel_create",
+      "description": "channel create. Refused writes change zero rows; audit contains no message body.",
+      "operation": "batch",
+      "statements": [
+        "INSERT OR IGNORE INTO channels(id,workspace_id,name,description,is_private,created_by,created_at) SELECT :channel_id,:workspace_id,:name,:description,:is_private,:__user_id,:__now WHERE EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND length(:channel_id) BETWEEN 1 AND 128 AND length(trim(:name)) BETWEEN 1 AND 80 AND length(:description) <= 1000 AND :is_private IN (0,1)",
+        "INSERT OR IGNORE INTO channel_members(channel_id,user_id,workspace_id,joined_at) SELECT id,:__user_id,workspace_id,:__now FROM channels WHERE id = :channel_id AND workspace_id = :workspace_id AND created_by = :__user_id AND created_at = :__now AND changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'channel_create', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "name": {
+          "type": "string",
+          "description": "Channel name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Channel description",
+          "default": ""
+        },
+        "is_private": {
+          "type": "integer",
+          "description": "0 public, 1 private",
+          "default": 0
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "channel_get",
+      "description": "channel get",
+      "operation": "query",
+      "sql": "SELECT c.id,c.workspace_id,c.name,c.description,c.is_private,c.created_by,c.created_at FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND (c.is_private = 0 OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = c.workspace_id AND cm.channel_id = c.id AND cm.user_id = :__user_id)) LIMIT 1",
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "channel_list",
+      "description": "channel list",
+      "operation": "query",
+      "sql": "SELECT c.id,c.workspace_id,c.name,c.description,c.is_private,c.created_by,c.created_at FROM channels c WHERE c.workspace_id = :workspace_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND (c.is_private = 0 OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = c.workspace_id AND cm.channel_id = c.id AND cm.user_id = :__user_id)) ORDER BY c.name,c.id LIMIT 100",
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "channel_join",
+      "description": "channel join. Refused writes change zero rows; audit contains no message body.",
+      "operation": "batch",
+      "statements": [
+        "INSERT OR IGNORE INTO channel_members(channel_id,user_id,workspace_id,joined_at) SELECT c.id,:__user_id,c.workspace_id,:__now FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id AND c.is_private = 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'channel_join', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "channel_leave",
+      "description": "channel leave. Refused writes change zero rows; audit contains no message body.",
+      "operation": "batch",
+      "statements": [
+        "DELETE FROM channel_members WHERE workspace_id = :workspace_id AND channel_id = :channel_id AND user_id = :__user_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'channel_leave', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "channel_member_add",
+      "description": "channel member add. Refused writes change zero rows; audit contains no message body.",
+      "operation": "batch",
+      "statements": [
+        "INSERT OR IGNORE INTO channel_members(channel_id,user_id,workspace_id,joined_at) SELECT c.id,:user_id,c.workspace_id,:__now FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin')) AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND (c.is_private = 0 OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = c.workspace_id AND cm.channel_id = c.id AND cm.user_id = :__user_id)) AND EXISTS (SELECT 1 FROM workspace_members target WHERE target.workspace_id = :workspace_id AND target.user_id = :user_id)",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'channel_member_add', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "user_id": {
+          "type": "string",
+          "description": "Workspace member to add"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "message_send",
+      "description": "message send. Refused writes change zero rows; audit contains no message body.",
+      "operation": "batch",
+      "statements": [
+        "INSERT OR IGNORE INTO messages(id,channel_id,workspace_id,user_id,body,created_at,updated_at) SELECT :message_id,:channel_id,:workspace_id,:__user_id,:body,:__now,:__now WHERE EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id) AND length(trim(:body)) BETWEEN 1 AND 10000 AND length(:body) <= 10000 AND length(:message_id) BETWEEN 1 AND 128",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'message_send', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "message_id": {
+          "type": "string",
+          "description": "Stable client UUID; reuse for send retries"
+        },
+        "body": {
+          "type": "string",
+          "description": "Plain text, 1 to 10000 characters"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "message_edit",
+      "description": "message edit. Refused writes change zero rows; audit contains no message body.",
+      "operation": "batch",
+      "statements": [
+        "UPDATE messages SET body = :body,updated_at = :__now WHERE id = :message_id AND workspace_id = :workspace_id AND channel_id = :channel_id AND user_id = :__user_id AND is_deleted = 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id) AND length(trim(:body)) BETWEEN 1 AND 10000 AND length(:body) <= 10000 AND body != :body",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'message_edit', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "message_id": {
+          "type": "string",
+          "description": "Stable client UUID; reuse for send retries"
+        },
+        "body": {
+          "type": "string",
+          "description": "Replacement plain text"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "message_delete",
+      "description": "message delete. Refused writes change zero rows; audit contains no message body.",
+      "operation": "batch",
+      "statements": [
+        "UPDATE messages SET body = '',is_deleted = 1,updated_at = :__now WHERE id = :message_id AND workspace_id = :workspace_id AND channel_id = :channel_id AND is_deleted = 0 AND (user_id = :__user_id OR EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin'))) AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id)",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'message_delete', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "message_id": {
+          "type": "string",
+          "description": "Stable client UUID; reuse for send retries"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "message_list",
+      "description": "message list",
+      "operation": "query",
+      "sql": "SELECT id,channel_id,workspace_id,user_id,CASE WHEN is_deleted = 1 THEN '' ELSE body END AS body,created_at,updated_at,is_deleted FROM messages WHERE workspace_id = :workspace_id AND channel_id = :channel_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id) AND ((:before_at IS NULL AND :before_id IS NULL) OR created_at < :before_at OR (created_at = :before_at AND id < :before_id)) ORDER BY created_at DESC,id DESC LIMIT 50",
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "before_at": {
+          "type": "integer",
+          "description": "Older-than timestamp paired with before_id",
+          "optional": true
+        },
+        "before_id": {
+          "type": "string",
+          "description": "Tie-break id paired with before_at",
+          "optional": true
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "reaction_add",
+      "description": "reaction add. Refused writes change zero rows; audit contains no message body.",
+      "operation": "batch",
+      "statements": [
+        "INSERT OR IGNORE INTO reactions(message_id,user_id,emoji,workspace_id,created_at) SELECT id,:__user_id,:emoji,:workspace_id,:__now FROM messages WHERE id = :message_id AND channel_id = :channel_id AND workspace_id = :workspace_id AND is_deleted = 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id) AND length(:emoji) BETWEEN 1 AND 32",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'reaction_add', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "message_id": {
+          "type": "string",
+          "description": "Stable client UUID; reuse for send retries"
+        },
+        "emoji": {
+          "type": "string",
+          "description": "Emoji identifier, 1 to 32 characters"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "reaction_remove",
+      "description": "reaction remove. Refused writes change zero rows; audit contains no message body.",
+      "operation": "batch",
+      "statements": [
+        "DELETE FROM reactions WHERE workspace_id = :workspace_id AND message_id = :message_id AND user_id = :__user_id AND emoji = :emoji AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id) AND EXISTS (SELECT 1 FROM messages m WHERE m.id = :message_id AND m.channel_id = :channel_id AND m.workspace_id = :workspace_id)",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'reaction_remove', :message_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "message_id": {
+          "type": "string",
+          "description": "Stable client UUID; reuse for send retries"
+        },
+        "emoji": {
+          "type": "string",
+          "description": "Emoji identifier, 1 to 32 characters"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "channel_mark_read",
+      "description": "channel mark read. Refused writes change zero rows; audit contains no message body.",
+      "operation": "batch",
+      "statements": [
+        "UPDATE channel_members SET last_read_at = :__now WHERE workspace_id = :workspace_id AND channel_id = :channel_id AND user_id = :__user_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND (last_read_at IS NULL OR last_read_at < :__now)",
+        "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'channel_mark_read', :channel_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        }
+      },
+      "requires_auth": true
+    }
+  ]
+}
