@@ -18,6 +18,7 @@ export function MessageCard({ message, params, role, archived, onChanged, onThre
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   async function action(run: () => Promise<number>) {
+    if (busy) return
     setBusy(true); setError('')
     try {
       if (!await run()) throw new Error('Change refused or already applied. Refresh to check your access.')
@@ -26,9 +27,9 @@ export function MessageCard({ message, params, role, archived, onChanged, onThre
   }
   return <li className="message-card"><strong>{message.display_name || 'Former member'}</strong>{' '}
     <time dateTime={new Date(message.created_at).toISOString()} title={new Date(message.created_at).toLocaleString()}>{timestamp(message.created_at)}</time>
-    {editing ? <form className="slackie-form" onSubmit={event => { event.preventDefault(); if (text === message.body) setEditing(false); else void action(() => editMessage({ ...params, content: text })) }}>
-      <label>Edit message <textarea required maxLength={10000} value={text} onChange={event => setText(event.target.value)} /></label>
-      <button disabled={busy || !text.trim()}>Save message</button><button type="button" onClick={() => setEditing(false)}>Cancel edit</button>
+    {editing ? <form className="slackie-form" onSubmit={event => { event.preventDefault(); if (busy) return; if (text === message.body) setEditing(false); else void action(() => editMessage({ ...params, content: text })) }}>
+      <label>Edit message <textarea required maxLength={10000} disabled={busy} value={text} onChange={event => setText(event.target.value)} /></label>
+      <button disabled={busy || !text.trim()}>Save message</button><button type="button" disabled={busy} onClick={() => setEditing(false)}>Cancel edit</button>
     </form> : <p className="message-body">{message.body}</p>}
     {message.edited_at !== null && <small>Edited</small>}
     {onThread && message.parent_id === null && <button onClick={onThread}>Reply in thread ({message.reply_count})</button>}

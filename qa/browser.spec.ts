@@ -241,3 +241,24 @@ test('members without visible channels see guidance without creation or admin co
   await expect(page.getByRole('button', { name: 'Create your first channel', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Settings', exact: true })).toHaveCount(0)
 })
+
+test('message edit locks the draft until the save finishes', async ({ page }) => {
+  const state = await fixture(page)
+  const message = page.getByRole('list', { name: 'Messages', exact: true }).getByRole('listitem').first()
+  await message.getByRole('button', { name: 'Edit message', exact: true }).click()
+  const editor = message.getByRole('textbox', { name: 'Edit message', exact: true })
+  await editor.fill('Saved draft')
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/actions/edit_message', async route => {
+    await gate
+    await route.fallback()
+  })
+  try {
+    await message.getByRole('button', { name: 'Save message', exact: true }).click()
+    await expect(editor).toBeDisabled()
+    await expect(message.getByRole('button', { name: 'Cancel edit', exact: true })).toBeDisabled()
+  } finally { release() }
+  await expect(message.getByText('Saved draft', { exact: true })).toBeVisible()
+  expect(state.calls.filter(call => call.name === 'edit_message')).toHaveLength(1)
+})
