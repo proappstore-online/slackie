@@ -62,7 +62,7 @@ async function fixture(page: Page, roomOpen = false, options: { emptyChannels?: 
   else if (options.emptyChannels && options.role === 'member') await expect(page.getByText('Ask an owner or admin to create your first channel.', { exact: true })).toBeVisible()
   else if (options.emptyChannels) await expect(page.getByRole('heading', { name: 'Create your first channel', exact: true })).toBeVisible()
   else await expect(page.getByRole('heading', { name: 'general', exact: true })).toBeVisible()
-  return { calls, messages, mentions, published, failNextSend: () => { failSend = true }, hint: () => sockets.at(-1)!.send(JSON.stringify({ kind: 'msg', from: { uid: 'peer', login: 'peer' }, data: { type: 'messages_changed', body: 'FORGED ROOM CONTENT' }, at: Date.now() })) }
+  return { calls, channels, messages, mentions, published, failNextSend: () => { failSend = true }, hint: () => sockets.at(-1)!.send(JSON.stringify({ kind: 'msg', from: { uid: 'peer', login: 'peer' }, data: { type: 'messages_changed', body: 'FORGED ROOM CONTENT' }, at: Date.now() })) }
 }
 
 test('channel modal restores focus, creates, edits, and archives', async ({ page }) => {
@@ -279,4 +279,111 @@ test('channel and thread composers keep Shift+Enter and IME Enter as draft input
     await expect(composer).toHaveValue('')
   }
   expect(state.calls.filter(call => ['send_message', 'thread_reply'].includes(call.name))).toHaveLength(2)
+})
+
+for (const action of ['workspace_list', 'get_channels', 'get_messages', 'get_thread_root', 'list_thread']) {
+  for (const failure of ['503', 'offline']) {
+    test(action + ' preserves message, reply, and edit drafts through ' + failure + ' and recovery', async ({ page }) => {
+      await fixture(page)
+      await page.getByRole('button', { name: 'Reply in thread (0)', exact: true }).click()
+      const composer = page.getByRole('textbox', { name: 'Message', exact: true })
+      const reply = page.getByRole('textbox', { name: 'Reply', exact: true })
+      await composer.fill('Unsent channel draft')
+      await reply.fill('Unsent thread draft')
+      const message = page.getByRole('list', { name: 'Messages', exact: true }).getByRole('listitem').first()
+      await message.getByRole('button', { name: 'Edit message', exact: true }).click()
+      const editor = message.getByRole('textbox', { name: 'Edit message', exact: true })
+      await editor.fill('Unsent edit')
+      await page.route('**/actions/' + action, route => failure === 'offline' ? route.abort('failed') : route.fulfill({ status: 503, json: { error: 'unavailable' } }))
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+      await expect(page.getByRole('alert').filter({ hasText: failure === '503' ? '503' : /fetch/i }).first()).toBeVisible()
+      await expect(composer).toHaveValue('Unsent channel draft')
+      await expect(reply).toHaveValue('Unsent thread draft')
+      await expect(editor).toHaveValue('Unsent edit')
+      await page.unroute('**/actions/' + action)
+      const recovered = page.waitForResponse(response => response.url().endsWith('/actions/' + action) && response.ok())
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+      await recovered
+      await expect(page.getByRole('alert')).toHaveCount(0)
+      await expect(composer).toHaveValue('Unsent channel draft')
+      await expect(reply).toHaveValue('Unsent thread draft')
+      await expect(editor).toHaveValue('Unsent edit')
+    })
+  }
+}
+
+for (const action of ['workspace_list', 'get_channels', 'get_thread_root']) {
+  for (const refusal of ['empty', '403']) {
+    test(action + ' clears private drafts after ' + refusal + ' access loss and recovery', async ({ page }) => {
+      await fixture(page)
+      await page.getByRole('button', { name: 'Reply in thread (0)', exact: true }).click()
+      await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Private channel draft')
+      await page.getByRole('textbox', { name: 'Reply', exact: true }).fill('Private reply draft')
+      await page.route('**/actions/' + action, route => route.fulfill(refusal === '403' ? { status: 403, json: { error: 'forbidden' } } : { json: { rows: [] } }))
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+      await expect(page.getByRole('textbox', { name: 'Reply', exact: true })).toHaveCount(0)
+      if (action !== 'get_thread_root') await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveCount(0)
+      await page.unroute('**/actions/' + action)
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+      if (action !== 'get_thread_root') {
+        await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('')
+        await page.getByRole('button', { name: 'Reply in thread (0)', exact: true }).click()
+      }
+      await expect(page.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('')
+    })
+  }
+}
+
+test('confirmed sign-out discards channel and thread drafts', async ({ page }) => {
+  await fixture(page)
+  await page.getByRole('button', { name: 'Reply in thread (0)', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Private channel draft')
+  await page.getByRole('textbox', { name: 'Reply', exact: true }).fill('Private reply draft')
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
+  await expect(page.getByRole('textbox')).toHaveCount(0)
+})
+
+
+test('polling preserves reply edits on 503 then clears drafts on channel membership revocation', async ({ page }) => {
+  await page.clock.install()
+  const state = await fixture(page)
+  state.messages.push({ ...state.messages[0]!, id: 'reply', parent_id: 'initial', body: 'Existing reply', content: 'Existing reply' })
+  await page.getByRole('button', { name: 'Reply in thread (0)', exact: true }).click()
+  const thread = page.getByRole('region', { name: 'Thread', exact: true })
+  const reply = thread.getByRole('textbox', { name: 'Reply', exact: true })
+  await reply.fill('Private reply draft')
+  await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Private channel draft')
+  await thread.getByRole('button', { name: 'Edit message', exact: true }).click()
+  const editor = thread.getByRole('textbox', { name: 'Edit message', exact: true })
+  await editor.fill('Private reply edit')
+  await page.route('**/actions/list_thread', route => route.fulfill({ status: 503, json: { error: 'unavailable' } }))
+  await page.clock.fastForward(10000)
+  await expect(thread.getByRole('alert')).toContainText('503')
+  await expect(editor).toHaveValue('Private reply edit')
+  await expect(reply).toHaveValue('Private reply draft')
+  await page.unroute('**/actions/list_thread')
+  await page.clock.fastForward(10000)
+  await expect(thread.getByRole('alert')).toHaveCount(0)
+  await expect(editor).toHaveValue('Private reply edit')
+  state.channels[0]!.is_member = 0
+  await page.clock.fastForward(10000)
+  await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveCount(0)
+  await expect(thread).toHaveCount(0)
+  state.channels[0]!.is_member = 1
+  await page.clock.fastForward(10000)
+  await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('')
+  await page.getByRole('button', { name: 'Reply in thread (1)', exact: true }).click()
+  await expect(reply).toHaveValue('')
+  await expect(thread.getByRole('textbox', { name: 'Edit message', exact: true })).toHaveCount(0)
+})
+
+test('401 from a refresh confirms sign-out and discards private context', async ({ page }) => {
+  await fixture(page)
+  await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Private draft')
+  await page.route('**/actions/workspace_list', route => route.fulfill({ status: 401, json: { error: 'unauthorized' } }))
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
+  await expect(page.getByRole('textbox')).toHaveCount(0)
+  await expect(page.getByText('<script>plain text</script>', { exact: true })).toHaveCount(0)
 })
