@@ -31,3 +31,21 @@
   VoiceOver at 200–400% zoom.
 - Mobile behavior is designed independently rather than shrinking the desktop shell.
 - No private/external/guest condition relies on colour alone.
+
+## Delivery tracking (2026-10-20)
+
+First slice: reduced-motion and forced-colors behavior, design rationale in
+[experience-design.md](../experience-design.md), and browser regression coverage.
+E14 remains open; none of the full task checkboxes above is complete.
+
+Remaining design/review follow-ups (not build-ready task approvals):
+
+- #24: E14.1 visual tokens, contrast, theme precedence, component states.
+- #25: E14.2 independent mobile IA, restoration, deep links, reflow.
+- #26: E14.3 keyboard contract and NVDA/VoiceOver journey validation.
+- #27: E14.4/E14.6 announcements and recovery-state catalogue.
+- #28: E14.5 localization, time zones, formatting, RTL and language.
+
+Each follow-up must record its decisions and review before creating build-ready
+child tasks. Automated browser checks do not complete the manual acceptance
+criteria in this epic.

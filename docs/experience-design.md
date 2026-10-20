@@ -71,3 +71,26 @@ Workspace
 - Never depend on colour alone for presence, unread, role, or error state.
 - Treat screen-reader announcements and notification settings as user controls,
   not product defaults.
+
+## E14 first implementation slice: motion and forced colors
+
+Decision (2026-10-20): use browser media preferences directly, without a new
+setting or PAS resource. Review of the current CSS found button press scaling,
+transitions, decorative glows, and translucent borders, with no reduced-motion
+or forced-colors treatment. This slice addresses those gaps only.
+
+- Reduced motion disables animation, transitions, smooth scrolling, and button
+  press scaling, including preference changes while the app is open.
+- Forced colors keeps browser color adjustment enabled. Canvas/CanvasText replace
+  the decorative background; Highlight marks keyboard focus; ButtonText borders
+  identify controls and dialogs; GrayText identifies disabled buttons.
+- Message actions remain visible in forced colors, including on fine pointers.
+  Dialog backdrops use the system canvas with partial opacity.
+- Normal-mode appearance and existing responsive breakpoints remain unchanged.
+
+Review boundary: these rules use existing semantic controls and do not change
+navigation, authorization, transport, or data storage. Browser regressions verify
+computed behavior and keyboard focus. They do not establish WCAG conformance or
+replace NVDA/VoiceOver, real high-contrast themes, and 200-400% zoom review.
+The remaining E14 decisions stay open; child issues must close their design gates
+before splitting build-ready work. E14.1 is only partially implemented.

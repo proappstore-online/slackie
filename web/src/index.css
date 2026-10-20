@@ -177,6 +177,15 @@ button:active {
   transform: scale(0.985);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  button:active { transform: none; }
+}
+
 :root[data-text='lg'] { font-size: 118.75%; }
 :root[data-text='sm'] { font-size: 87.5%; }
 
@@ -238,5 +247,19 @@ a:focus-visible {
   @media (max-width: 950px) {
     .message-and-thread { grid-template-columns: minmax(0, 1fr); }
     .thread-panel { border-inline-start: none; border-block-start: 1px solid var(--line); padding-inline-start: 0; }
+  }
+}
+
+@layer components {
+  @media (forced-colors: active) {
+    body { background: Canvas; color: CanvasText; }
+    body::before, body::after { display: none; }
+    .slackie-shell :focus-visible { outline: 2px solid Highlight; }
+    .slackie-shell button, .slackie-shell summary,
+    .slackie-shell input, .slackie-shell select, .slackie-shell textarea,
+    .role-badge, dialog { border-color: ButtonText; }
+    .slackie-shell button:disabled { color: GrayText; opacity: 1; }
+    .message-actions { opacity: 1; }
+    dialog::backdrop { background: Canvas; opacity: .75; }
   }
 }
