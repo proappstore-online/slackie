@@ -230,3 +230,13 @@ a:focus-visible {
     .message-card:hover .message-actions, .message-card:focus-within .message-actions { opacity: 1; }
   }
 }
+
+@layer components {
+  .message-and-thread { display: grid; grid-template-columns: minmax(0, 1fr) minmax(15rem, 22rem); gap: 1rem; }
+  .message-and-thread > section { min-width: 0; }
+  .thread-panel { padding-inline-start: 1rem; border-inline-start: 1px solid var(--line); }
+  @media (max-width: 950px) {
+    .message-and-thread { grid-template-columns: minmax(0, 1fr); }
+    .thread-panel { border-inline-start: none; border-block-start: 1px solid var(--line); padding-inline-start: 0; }
+  }
+}

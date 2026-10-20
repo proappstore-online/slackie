@@ -3,20 +3,22 @@
 The current increment implements the explicitly requested channel-based scaffold,
 not a production MVP or completion of E0/E1. The browser supports platform sign-in,
 workspace creation/switching, channel metadata/archive/invitation controls,
-paginated messages, editing/deletion/reactions, and workspace member profiles
-and management. These paths require a configured PAS
+paginated messages, threads/replies, editing/deletion/reactions, mentions,
+workspace member profiles/management, owner-only workspace renaming, and
+first-channel onboarding. These paths require a configured PAS
 host; no resources are provisioned and no deployment workflow is installed.
 
 ## Layout and local verification
 
-- `mcp.json`: 40 authenticated SQL actions, including the original 19 compatible
+- `mcp.json`: 47 authenticated SQL actions, including the original 19 compatible
   names, the requested channel/message/member helpers, and a room authorizer.
 - `migrations.json`: workspace, membership, channel, message, reaction, and
   content-free audit tables. Migration 0005 adds archive/edit/delete fields,
   `message_reactions`, and `activity_log`, preserving earlier migrations and
   copying legacy reaction/audit data. Migration 0006 adds topics, archive time,
   member profile fields, and an audit-to-activity trigger. These migrations have
-  not been applied to PAS.
+  not been applied to PAS. Migration 0007 adds root-scoped thread replies,
+  unique mention handles, and transactionally derived mention records.
 - `web/`: React/Vite, platform-cookie auth, workspace/channel/message shell,
   template CSS/PWA assets. Private content stays in component memory; changing
   workspace/channel or signing out unmounts its view. Request effects ignore
@@ -25,7 +27,8 @@ host; no resources are provisioned and no deployment workflow is installed.
   negative tests executing the registered SQL itself, including foreign keys.
 - `qa/browser.spec.ts`: browser interaction coverage with mocked PAS transport,
   including modal focus, sending/retrying, edits/reactions/deletes, sign-out,
-  member controls, and ten-second polling while rooms are unavailable.
+  member controls, thread retry/context/focus, mentions and independent seen
+  state, owner/admin settings, onboarding, and polling while rooms are unavailable.
 - `.github/workflows/`: CI tests/typecheck and template compliance; no deploy job.
 
 Use `pnpm install`, `pnpm test`, and `pnpm build`. The build invokes the official
@@ -103,11 +106,58 @@ Canonical epic E4/#6 is realtime. Workspace member work belongs to E1/#7 and
 E9/#8. E0 has unresolved product/privacy/ADR tasks and is not complete merely
 because a foundation increment landed.
 
+## Threads, mentions, settings, and onboarding
+
+- `messages.parent_id` references a root message. Both action predicates and
+  a schema trigger require the same workspace/channel, a non-reply root, and a
+  live parent when inserting a reply. Roots and replies use separate bounded
+  keyset queries. Reply counts exclude deleted replies. Authorized readers can
+  still read replies to a deleted root, with a body-free parent tombstone, but
+  cannot add replies to it. Replies use stable retry ids, ordinary author edit
+  rules, and existing channel authorization. No nested threads are exposed.
+- Canonical `mention_handle` values are unique per workspace. Existing/new
+  members get collision-free `uid-` plus UTF-8-hex user-id fallback handles; a member
+  can choose a 1..32-character lowercase ASCII letter/number/underscore/hyphen
+  handle in their profile. The `uid-` prefix is reserved so a chosen handle cannot
+  block a future member's generated handle. Display names do not determine mention identity.
+- SQL triggers tokenize plain-text `@handle` references on message/reply insert
+  and body edits. Matching is case-insensitive and uses ASCII token boundaries;
+  repeated references deduplicate, email fragments and longer handle prefixes
+  do not match, and self mentions are ignored. There is no client-supplied
+  recipient list. A recipient must currently belong to both workspace and channel,
+  including private channels. Mentions carry only resource ids and attention state.
+- Existing messages are not backfilled. Edits remove stale recipients, preserve
+  seen state for retained recipients, and add newly mentioned recipients. A handle
+  change does not rewrite old attention items; a later body edit re-resolves text.
+  Deletion removes that message's mentions. Channel/workspace removal revokes
+  reads and cascades attention items; rejoining does not resurrect old mentions.
+- `list_mentions` uses 50-row keyset pages with authorization at read time.
+  `get_mention_count` counts all currently eligible unseen items, beyond the page.
+  `acknowledge_mention` is recipient-only and changes no channel/thread read cursor.
+  Message, derived mentions, and audit are atomic. These items are a minimal
+  personal mentions inbox, not a full Activity/notification delivery system.
+- Room hints remain body-free and trigger authorized attention refetches while
+  viewing a channel. Ten-second polling refreshes mentions regardless of rooms.
+  No push, email, or global notification-delivery guarantee is added.
+- `update_workspace` checks owner role in SQL. Admins see read-only name settings;
+  ordinary role management retains owner protection. Ownership transfer and the
+  full E9 governance lifecycle are still separate work.
+- First-run owners/admins get a create-first-channel prompt with `general`
+  prefilled. Ordinary members get guidance without unauthorized creation controls.
+  General's welcome is a UI hint, not a duplicate-prone system-message write.
+  The PAS pending/signed-out/signed-in state boundary remains unchanged.
+
+The request's filenames `EPIC-05-threads.md`, `EPIC-06-notifications.md`,
+`EPIC-10-admin.md`, and `EPIC-11-onboarding.md` do not exist. Canonical threads
+belong to E3/E11; E5 is trust/quality, E6 validation, E9 identity/governance,
+E10 durable sync, E11 attention, and E12 search. The requested feature increment
+does not close those broader epics or replace their acceptance criteria.
+
 ## Remaining gates
 
 E0 product/privacy decisions; E1/E9 invitation binding, expiry/revocation,
 membership statuses, ownership transfer/step-up and governance; generic
-conversations; threads; revision conflicts; durable body-free change feed and
+conversations; thread follow/mute/read cursors; revision conflicts; durable body-free change feed and
 sync; realtime authorization/capacity validation; complete attention semantics;
 rate limiting; CSP/CSRF review; browser accessibility/E2E and usability evidence.
 

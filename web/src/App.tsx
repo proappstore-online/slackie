@@ -56,6 +56,7 @@ function WorkspaceShell() {
     } catch (err) { setError(errorText(err)) } finally { setBusy(false) }
   }
   const workspace = workspaces.find(row => row.id === selected)
+  async function refreshWorkspaces() { setWorkspaces(await query<Workspace>('workspace_list')) }
   return <>
     <section aria-label="Workspaces" className="workspace-controls">
       <label>Workspace <select value={selected} disabled={loading || busy || !workspaces.length} onChange={event => setSelected(event.target.value)}>
@@ -70,7 +71,7 @@ function WorkspaceShell() {
       </form></details>
     </section>
     {error && <p role="alert">{error}</p>}
-    {loading ? <p role="status">Loading workspaces…</p> : workspace ? <ChannelShell key={workspace.id} workspace={workspace} />
+    {loading ? <p role="status">Loading workspaces…</p> : workspace ? <ChannelShell key={workspace.id} workspace={workspace} onWorkspaceChanged={refreshWorkspaces} />
       : <main id="conversation"><p>Create a workspace to get started.</p></main>}
   </>
 }

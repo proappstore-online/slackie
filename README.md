@@ -2,7 +2,8 @@
 
 Slackie is a team communication app foundation for ProAppStore. This repository
 contains the design library, registered SQL actions, additive migrations, a
-React/Vite channel conversations and member management, and local authorization tests.
+React/Vite channel conversations with threads and mentions, member management,
+workspace settings, onboarding, and local authorization tests.
 Hosted use requires PAS setup; this is not production-ready. No deployment
 workflow is enabled.
 

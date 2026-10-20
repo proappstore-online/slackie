@@ -9,6 +9,7 @@ export function Members({ workspace }: { workspace: Workspace }) {
   const [error, setError] = useState('')
   const [profile, setProfile] = useState<Member | null>(null)
   const [name, setName] = useState('')
+  const [handle, setHandle] = useState('')
   const myId = app.auth.user?.id
   useEffect(() => {
     let active = true
@@ -33,13 +34,14 @@ export function Members({ workspace }: { workspace: Workspace }) {
   }
   function saveProfile(event: FormEvent) {
     event.preventDefault()
-    void change(() => updateMyProfile({ workspace_id: workspace.id, display_name: name.trim() }))
+    void change(() => updateMyProfile({ workspace_id: workspace.id, display_name: name.trim(), ...(handle.trim() ? { mention_handle: handle.trim() } : {}) }))
   }
   return <main id="conversation"><h2>Members</h2>
     {error && <p role="alert">{error}</p>}{loading && <p role="status">Loading members…</p>}
     <ul className="member-list">{members.map(member => <li key={member.user_id}>
       <button onClick={() => void viewProfile(member.user_id)}>{member.display_name}</button>
       <span className="role-badge">{member.role}</span>
+      {member.mention_handle && <span>@{member.mention_handle}</span>}
       {workspace.role === 'owner' && member.role !== 'owner' && <label>Role for {member.display_name}
         <select value={member.role} disabled={busy} onChange={event => {
           const role = event.target.value
@@ -52,9 +54,11 @@ export function Members({ workspace }: { workspace: Workspace }) {
     </li>)}</ul>
     {!loading && <form className="slackie-form" onSubmit={saveProfile}><label>Your display name
       <input required maxLength={80} value={name} onChange={event => setName(event.target.value)} /></label>
-      <button disabled={busy || !name.trim()}>Save display name</button></form>}
+      <label>Mention handle <input maxLength={32} pattern="[a-z0-9_-]{1,32}" value={handle} onChange={event => setHandle(event.target.value)} aria-describedby="handle-help" /></label>
+      <small id="handle-help">Optional unique lowercase handle; uid- is reserved. Leave blank to keep your existing handle.</small>
+      <button disabled={busy || !name.trim()}>Save profile</button></form>}
     {profile && <Modal title={profile.display_name} onClose={() => setProfile(null)}>
-      <p>Role: {profile.role}</p><p>Member since {new Date(profile.joined_at).toLocaleDateString()}</p>
+      <p>Role: {profile.role}</p>{profile.mention_handle && <p>@{profile.mention_handle}</p>}<p>Member since {new Date(profile.joined_at).toLocaleDateString()}</p>
     </Modal>}
   </main>
 }

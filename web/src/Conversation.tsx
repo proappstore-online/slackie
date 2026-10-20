@@ -1,20 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { app, addReaction, deleteMessage, editMessage, errorText, getMessages, joinChannel, leaveChannel, removeReaction, sendMessage, type Channel, type Message, type MessageScope, type Role } from './api'
+import { app, errorText, getMessages, joinChannel, leaveChannel, notifyChanges, sendMessage, type Channel, type Message, type Role } from './api'
 import { ChannelDetails } from './ChannelDetails'
+import { MessageCard } from './MessageCard'
+import { ThreadPanel } from './ThreadPanel'
 
-function timestamp(value: number) {
-  const date = new Date(value)
-  const minutes = Math.floor((Date.now() - value) / 60000)
-  if (minutes < 1) return 'Just now'
-  if (minutes < 60) return `${minutes}m ago`
-  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1)
-  if (date.toDateString() === yesterday.toDateString()) return `Yesterday ${date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
-  return date.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-}
-
-export function Conversation({ channel, role, onChannelsChange }: { channel: Channel; role: Role; onChannelsChange: () => Promise<void> }) {
+export function Conversation({ channel, role, onChannelsChange, requestedThread }: { channel: Channel; role: Role; onChannelsChange: () => Promise<void>; requestedThread?: string | null }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [draft, setDraft] = useState('')
+  const [thread, setThread] = useState<string | null>(requestedThread ?? null)
+  useEffect(() => { if (requestedThread) setThread(requestedThread) }, [requestedThread])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(!!channel.is_member)
   const [busy, setBusy] = useState(false)
@@ -61,8 +55,8 @@ export function Conversation({ channel, role, onChannelsChange }: { channel: Cha
         try { if (room.state === 'open') room.send({ type: 'messages_changed', channelId: channel.id }) } catch { /* Durable writes never depend on rooms. */ }
       }
       const unsubs = [
-        room.onMessage<{ type?: string }>(message => { if (message.data?.type === 'messages_changed') void load() }),
-        room.onEvent(() => void load()), room.onReconnect(() => void load()),
+        room.onMessage<{ type?: string }>(message => { if (message.data?.type === 'messages_changed') { void load(); notifyChanges() } }),
+        room.onEvent(() => { void load(); notifyChanges() }), room.onReconnect(() => void load()),
         room.onConnectionState(state => { if (active) setConnection(current => state === 'open' ? 'Connected. Updates poll every 10 seconds and refetch on hints.' : current.includes('capacity') ? current : 'Polling every 10 seconds; realtime is reconnecting or unavailable.') }),
         room.onClose(info => {
           if (!active) return
@@ -84,7 +78,7 @@ export function Conversation({ channel, role, onChannelsChange }: { channel: Cha
     // room and all private component state are discarded on context changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channel.id, channel.workspace_id, channel.is_member])
-  async function changed() { hintRef.current(); await refreshRef.current() }
+  async function changed() { hintRef.current(); notifyChanges(); await refreshRef.current() }
   async function refresh(older = false) {
     setBusy(true)
     if (older) pages.current++
@@ -113,6 +107,7 @@ export function Conversation({ channel, role, onChannelsChange }: { channel: Cha
   }
   return <main id="conversation" aria-labelledby="channel-title">
     <header><h2 id="channel-title">{channel.name}{channel.is_archived ? ' (archived)' : ''}</h2><p>{channel.topic || channel.description}</p></header>
+    {channel.name === 'general' && <p role="note">Welcome to #general. Introduce yourself and start a conversation with your team.</p>}
     <ChannelDetails channel={channel} role={role} onChanged={onChannelsChange} />
     {(!channel.is_member && !channel.is_private && !channel.is_archived) && <button disabled={busy} onClick={() => void membership()}>Join channel</button>}
     {!!channel.is_member && !!channel.can_leave && <button disabled={busy} onClick={() => void membership()}>Leave channel</button>}
@@ -122,52 +117,17 @@ export function Conversation({ channel, role, onChannelsChange }: { channel: Cha
       <p role="status">{loading ? 'Loading messages…' : connection}</p>
       <button disabled={busy || loading} onClick={() => void refresh()}>Refresh messages</button>
       {hasMore && <button disabled={busy || loading} onClick={() => void refresh(true)}>Load older messages</button>}
-      <div className="message-scroll"><ol aria-label="Messages" className="message-list">{[...messages].reverse().map(message =>
-        <MessageCard key={message.id} message={message} params={{ ...params, message_id: message.id }} role={role} archived={!!channel.is_archived} onChanged={changed} />
+      <div className={thread ? "message-and-thread" : undefined}><section aria-label="Channel conversation"><div className="message-scroll"><ol aria-label="Messages" className="message-list">{[...messages].reverse().map(message =>
+        <MessageCard key={message.id} message={message} params={{ ...params, message_id: message.id }} role={role} archived={!!channel.is_archived} onChanged={changed} onThread={() => setThread(message.id)} />
       )}</ol>{!loading && !messages.length && <p>No messages yet.</p>}<div ref={endRef} /></div>
       <form onSubmit={send} className="slackie-form"><label>Message
         <textarea required maxLength={10000} value={draft} disabled={busy || !!channel.is_archived} aria-describedby="send-help"
           onChange={event => setDraft(event.target.value)} onKeyDown={event => {
             if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit() }
           }} /></label>
-        <small id="send-help">Enter or Ctrl+Enter sends. Shift+Enter adds a line.</small>
+        <small id="send-help">Enter or Ctrl+Enter sends. Shift+Enter adds a line. Use @handles from Members to mention teammates.</small>
         <button disabled={busy || loading || !!channel.is_archived || !draft.trim()}>Send message</button>
-      </form>
+      </form></section>{thread && <ThreadPanel key={thread} channel={channel} parentId={thread} role={role} onClose={() => setThread(null)} onChanged={changed} />}</div>
     </>}
   </main>
-}
-
-function MessageCard({ message, params, role, archived, onChanged }: { message: Message; params: MessageScope; role: Role; archived: boolean; onChanged: () => Promise<void> }) {
-  const mine = message.user_id === app.auth.user?.id
-  const [editing, setEditing] = useState(false)
-  const [text, setText] = useState(message.body)
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-  async function action(run: () => Promise<number>) {
-    setBusy(true); setError('')
-    try {
-      if (!await run()) throw new Error('Change refused or already applied. Refresh to check your access.')
-      setEditing(false); await onChanged()
-    } catch (err) { setError(errorText(err)) } finally { setBusy(false) }
-  }
-  return <li className="message-card"><strong>{message.display_name || 'Former member'}</strong>{' '}
-    <time dateTime={new Date(message.created_at).toISOString()} title={new Date(message.created_at).toLocaleString()}>{timestamp(message.created_at)}</time>
-    {editing ? <form className="slackie-form" onSubmit={event => { event.preventDefault(); if (text === message.body) setEditing(false); else void action(() => editMessage({ ...params, content: text })) }}>
-      <label>Edit message <textarea required maxLength={10000} value={text} onChange={event => setText(event.target.value)} /></label>
-      <button disabled={busy || !text.trim()}>Save message</button><button type="button" onClick={() => setEditing(false)}>Cancel edit</button>
-    </form> : <p className="message-body">{message.body}</p>}
-    {message.edited_at !== null && <small>Edited</small>}
-    <div className="message-actions">
-      {mine && !archived && Date.now() - message.created_at < 86400000 && <button disabled={busy} onClick={() => { setText(message.body); setEditing(true) }}>Edit message</button>}
-      {(mine || role !== 'member') && <button disabled={busy} onClick={() => {
-        if (window.confirm('Delete this message?')) void action(() => deleteMessage(params))
-      }}>Delete message</button>}
-      <div aria-label="Reactions">{['👍', '❤️', '😄'].map(emoji => {
-        const reaction = message.reactions.find(row => row.emoji === emoji)
-        return <button key={emoji} aria-label={`${reaction?.reacted ? 'Remove' : 'Add'} ${emoji} reaction`} aria-pressed={!!reaction?.reacted}
-          disabled={busy || archived} onClick={() => void action(() => reaction?.reacted ? removeReaction({ ...params, emoji }) : addReaction({ ...params, emoji }))}>
-          {emoji} {reaction?.count || 0}</button>
-      })}</div>
-    </div>{error && <p role="alert">{error}</p>}
-  </li>
 }

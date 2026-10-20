@@ -8,8 +8,9 @@ export type Role = (typeof ROLES)[number]
 export interface Workspace { id: string; name: string; slug: string; role: Role }
 export interface Channel { id: string; workspace_id: string; name: string; description: string; topic: string; archived_at: number | null; is_private: number; is_archived: number; is_member: number; can_leave: number }
 export interface Reaction { emoji: string; count: number; reacted: number }
-export interface Message { id: string; user_id: string; display_name: string | null; body: string; content: string; reactions: Reaction[]; created_at: number; edited_at: number | null; deleted_at: number | null }
-export interface Member { user_id: string; display_name: string; role: Role; joined_at: number; avatar_url?: string | null }
+export interface Message { id: string; user_id: string; display_name: string | null; body: string; content: string; reactions: Reaction[]; parent_id: string | null; reply_count: number; created_at: number; edited_at: number | null; deleted_at: number | null }
+export interface Member { user_id: string; display_name: string; mention_handle: string; role: Role; joined_at: number; avatar_url?: string | null }
+export interface Mention { message_id: string; channel_id: string; channel_name: string; parent_id: string | null; root_id: string; body: string; created_at: number; seen_at: number | null }
 export interface ChannelScope { workspace_id: string; channel_id: string }
 export interface MessageScope extends ChannelScope { message_id: string }
 export async function query<T>(name: string, params: Record<string, unknown> = {}): Promise<T[]> {
@@ -39,7 +40,7 @@ export const editMessage = (params: MessageScope & { content: string }) => write
 export const deleteMessage = (params: MessageScope) => write('delete_message', { ...params })
 export async function getMessages(params: ChannelScope & { before_id?: string }) {
   const rows = await query<Omit<Message, 'reactions'> & { reactions: string }>('get_messages', { ...params })
-  return rows.map(row => ({ ...row, reactions: JSON.parse(row.reactions || '[]') as Reaction[] }))
+  return rows.map(parseMessage)
 }
 export const addReaction = (params: MessageScope & { emoji: string }) => write('add_reaction', { ...params })
 export const removeReaction = (params: MessageScope & { emoji: string }) => write('remove_reaction', { ...params })
@@ -48,4 +49,23 @@ export const getWorkspaceMembers = (workspace_id: string) => query<Member>('get_
 export const updateMemberRole = (params: { workspace_id: string; user_id: string; role: 'admin' | 'member' }) => write('update_member_role', params)
 export const removeMember = (params: { workspace_id: string; user_id: string }) => write('remove_member', params)
 export const getMemberProfile = (params: { workspace_id: string; user_id: string }) => query<Member>('get_member_profile', params)
-export const updateMyProfile = (params: { workspace_id: string; display_name: string }) => write('update_my_profile', params)
+export const updateMyProfile = (params: { workspace_id: string; display_name: string; mention_handle?: string }) => write('update_my_profile', params)
+
+type RawMessage = Omit<Message, 'reactions'> & { reactions: string }
+const parseMessage = (row: RawMessage): Message => ({ ...row, parent_id: row.parent_id ?? null, reply_count: row.reply_count ?? 0, reactions: JSON.parse(row.reactions || '[]') as Reaction[] })
+export interface ThreadScope extends ChannelScope { parent_id: string }
+export const threadReply = (params: ThreadScope & { message_id: string; content: string }) => write('thread_reply', { ...params })
+export async function listThread(params: ThreadScope & { before_id?: string }) {
+  return (await query<RawMessage>('list_thread', { ...params })).map(parseMessage)
+}
+export async function getThreadRoot(params: ThreadScope) {
+  return (await query<RawMessage>('get_thread_root', { ...params })).map(parseMessage)[0] ?? null
+}
+export const listMentions = (params: { workspace_id: string; before_id?: string }) => query<Mention>('list_mentions', params)
+export const acknowledgeMention = (params: MessageScope) => write('acknowledge_mention', { ...params })
+export async function getMentionCount(workspace_id: string) {
+  return (await query<{ count: number }>('get_mention_count', { workspace_id }))[0]?.count ?? 0
+}
+export const updateWorkspace = (params: { workspace_id: string; name: string }) => write('update_workspace', params)
+// A body-free local signal to refetch attention state; it conveys no authority.
+export const notifyChanges = () => window.dispatchEvent(new Event('slackie:changes'))

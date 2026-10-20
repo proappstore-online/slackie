@@ -44,5 +44,7 @@ Channel messaging, 24-hour author edits, soft deletion, grouped reactions,
 sender profiles, retry ids, and paginated reads are implemented. Owner/admin
 deletion still requires active channel membership; it does not grant exceptional
 private-content access. The current requested timeline omits deleted rows.
-Threads, revision conflicts, canonical send responses, and durable change-feed
-handoff remain open; this increment does not complete E3.
+Root-scoped thread replies, reply counts, a thread panel, bounded reply queries,
+and deleted-root context are implemented. Follow/mute/read state, revision
+conflicts, canonical send responses, and durable change-feed handoff remain
+open; these increments do not complete E3.

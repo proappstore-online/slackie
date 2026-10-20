@@ -328,7 +328,7 @@
       "name": "message_list",
       "description": "message list",
       "operation": "query",
-      "sql": "SELECT id,channel_id,workspace_id,user_id,body,created_at,edited_at,deleted_at FROM messages WHERE workspace_id = :workspace_id AND channel_id = :channel_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id) AND deleted_at IS NULL AND (:before_id IS NULL OR (created_at,id) < (SELECT cursor.created_at,cursor.id FROM messages cursor WHERE cursor.id = :before_id AND cursor.workspace_id = :workspace_id AND cursor.channel_id = :channel_id)) ORDER BY created_at DESC,id DESC LIMIT min(100,max(1,:limit))",
+      "sql": "SELECT id,channel_id,workspace_id,user_id,body,created_at,edited_at,deleted_at FROM messages WHERE parent_id IS NULL AND workspace_id = :workspace_id AND channel_id = :channel_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id) AND deleted_at IS NULL AND (:before_id IS NULL OR (created_at,id) < (SELECT cursor.created_at,cursor.id FROM messages cursor WHERE cursor.id = :before_id AND cursor.parent_id IS NULL AND cursor.workspace_id = :workspace_id AND cursor.channel_id = :channel_id)) ORDER BY created_at DESC,id DESC LIMIT min(100,max(1,:limit))",
       "params": {
         "workspace_id": {
           "type": "string",
@@ -573,7 +573,7 @@
       "name": "get_channel_members",
       "description": "get channel members",
       "operation": "query",
-      "sql": "SELECT wm.user_id,COALESCE(NULLIF(wm.display_name,''),wm.user_id) AS display_name,wm.role,cm.joined_at FROM channel_members cm JOIN workspace_members wm ON wm.workspace_id = cm.workspace_id AND wm.user_id = cm.user_id JOIN channels c ON c.id = cm.channel_id AND c.workspace_id = cm.workspace_id WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND (c.is_private = 0 OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id)) AND (EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin')) OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id)) ORDER BY cm.joined_at,wm.user_id LIMIT 500",
+      "sql": "SELECT wm.user_id,COALESCE(NULLIF(wm.display_name,''),wm.user_id) AS display_name,wm.mention_handle,wm.role,cm.joined_at FROM channel_members cm JOIN workspace_members wm ON wm.workspace_id = cm.workspace_id AND wm.user_id = cm.user_id JOIN channels c ON c.id = cm.channel_id AND c.workspace_id = cm.workspace_id WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND (c.is_private = 0 OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id)) AND (EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id AND me.role IN ('owner','admin')) OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id)) ORDER BY cm.joined_at,wm.user_id LIMIT 500",
       "params": {
         "workspace_id": {
           "type": "string",
@@ -750,7 +750,7 @@
       "name": "get_messages",
       "description": "get messages",
       "operation": "query",
-      "sql": "SELECT id,channel_id,workspace_id,user_id,body,body AS content,created_at,edited_at,deleted_at,(SELECT COALESCE(NULLIF(sender.display_name,''),sender.user_id) FROM workspace_members sender WHERE sender.workspace_id = messages.workspace_id AND sender.user_id = messages.user_id) AS display_name,(SELECT json_group_array(json_object('emoji',grouped.emoji,'count',grouped.count,'reacted',grouped.reacted)) FROM (SELECT r.emoji,COUNT(*) AS count,MAX(r.user_id = :__user_id) AS reacted FROM message_reactions r JOIN workspace_members active ON active.workspace_id = r.workspace_id AND active.user_id = r.user_id WHERE r.workspace_id = messages.workspace_id AND r.channel_id = messages.channel_id AND r.message_id = messages.id GROUP BY r.emoji ORDER BY r.emoji LIMIT 32) grouped) AS reactions FROM messages WHERE workspace_id = :workspace_id AND channel_id = :channel_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id) AND deleted_at IS NULL AND (:before_id IS NULL OR (created_at,id) < (SELECT cursor.created_at,cursor.id FROM messages cursor WHERE cursor.id = :before_id AND cursor.workspace_id = :workspace_id AND cursor.channel_id = :channel_id)) ORDER BY created_at DESC,id DESC LIMIT 50",
+      "sql": "SELECT id,channel_id,workspace_id,user_id,parent_id,(SELECT COUNT(*) FROM messages reply WHERE reply.parent_id = messages.id AND reply.workspace_id = messages.workspace_id AND reply.channel_id = messages.channel_id AND reply.deleted_at IS NULL) AS reply_count,body,body AS content,created_at,edited_at,deleted_at,(SELECT COALESCE(NULLIF(sender.display_name,''),sender.user_id) FROM workspace_members sender WHERE sender.workspace_id = messages.workspace_id AND sender.user_id = messages.user_id) AS display_name,(SELECT json_group_array(json_object('emoji',grouped.emoji,'count',grouped.count,'reacted',grouped.reacted)) FROM (SELECT r.emoji,COUNT(*) AS count,MAX(r.user_id = :__user_id) AS reacted FROM message_reactions r JOIN workspace_members active ON active.workspace_id = r.workspace_id AND active.user_id = r.user_id WHERE r.workspace_id = messages.workspace_id AND r.channel_id = messages.channel_id AND r.message_id = messages.id GROUP BY r.emoji ORDER BY r.emoji LIMIT 32) grouped) AS reactions FROM messages WHERE parent_id IS NULL AND workspace_id = :workspace_id AND channel_id = :channel_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id) AND deleted_at IS NULL AND (:before_id IS NULL OR (created_at,id) < (SELECT cursor.created_at,cursor.id FROM messages cursor WHERE cursor.id = :before_id AND cursor.parent_id IS NULL AND cursor.workspace_id = :workspace_id AND cursor.channel_id = :channel_id)) ORDER BY created_at DESC,id DESC LIMIT 50",
       "params": {
         "workspace_id": {
           "type": "string",
@@ -793,7 +793,7 @@
       "name": "get_workspace_members",
       "description": "get workspace members",
       "operation": "query",
-      "sql": "SELECT wm.user_id,COALESCE(NULLIF(wm.display_name,''),wm.user_id) AS display_name,wm.role,wm.joined_at FROM workspace_members wm WHERE wm.workspace_id = :workspace_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) ORDER BY wm.joined_at,wm.user_id LIMIT 500",
+      "sql": "SELECT wm.user_id,COALESCE(NULLIF(wm.display_name,''),wm.user_id) AS display_name,wm.mention_handle,wm.role,wm.joined_at FROM workspace_members wm WHERE wm.workspace_id = :workspace_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) ORDER BY wm.joined_at,wm.user_id LIMIT 500",
       "params": {
         "workspace_id": {
           "type": "string",
@@ -806,7 +806,7 @@
       "name": "get_member_profile",
       "description": "get member profile",
       "operation": "query",
-      "sql": "SELECT target.user_id,COALESCE(NULLIF(target.display_name,''),target.user_id) AS display_name,target.role,target.avatar_url,target.joined_at FROM workspace_members target WHERE target.workspace_id = :workspace_id AND target.user_id = :user_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) LIMIT 1",
+      "sql": "SELECT target.user_id,COALESCE(NULLIF(target.display_name,''),target.user_id) AS display_name,target.mention_handle,target.role,target.avatar_url,target.joined_at FROM workspace_members target WHERE target.workspace_id = :workspace_id AND target.user_id = :user_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) LIMIT 1",
       "params": {
         "workspace_id": {
           "type": "string",
@@ -868,7 +868,7 @@
       "description": "update my profile. SQL authorization; zero changes means refused/no-op.",
       "operation": "batch",
       "statements": [
-        "UPDATE workspace_members SET display_name = :display_name WHERE workspace_id = :workspace_id AND user_id = :__user_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND length(trim(:display_name)) BETWEEN 1 AND 80 AND length(:display_name) <= 80 AND display_name != :display_name",
+        "UPDATE workspace_members SET display_name = :display_name,mention_handle = COALESCE(:mention_handle,mention_handle) WHERE workspace_id = :workspace_id AND user_id = :__user_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND length(trim(:display_name)) BETWEEN 1 AND 80 AND length(:display_name) <= 80 AND (:mention_handle IS NULL OR (length(:mention_handle) BETWEEN 1 AND 32 AND :mention_handle NOT GLOB '*[^a-z0-9_-]*' AND :mention_handle NOT LIKE 'uid-%')) AND (display_name != :display_name OR (:mention_handle IS NOT NULL AND mention_handle != :mention_handle))",
         "INSERT INTO audit_log(id,workspace_id,actor_id,action,target_id,created_at) SELECT :__uuid,:workspace_id,:__user_id,'update_my_profile',:__user_id,:__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
       ],
       "params": {
@@ -879,6 +879,11 @@
         "display_name": {
           "type": "string",
           "description": "Display name, 1..80 characters"
+        },
+        "mention_handle": {
+          "type": "string",
+          "description": "Unique lowercase mention handle, 1..32 ASCII letters/numbers/underscore/hyphen; omitted keeps current; uid- prefix is reserved for generated handles",
+          "optional": true
         }
       },
       "requires_auth": true
@@ -896,6 +901,160 @@
         "key": {
           "type": "string",
           "description": "Workspace/channel room key"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "thread_reply",
+      "description": "thread reply. Atomic guarded write plus content-free audit.",
+      "operation": "batch",
+      "statements": [
+        "INSERT OR IGNORE INTO messages(id,channel_id,workspace_id,user_id,body,created_at,updated_at,parent_id) SELECT :message_id,:channel_id,:workspace_id,:__user_id,:content,:__now,:__now,:parent_id WHERE EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id AND c.is_archived = 0) AND length(trim(:content)) BETWEEN 1 AND 10000 AND length(:content) <= 10000 AND length(:message_id) BETWEEN 1 AND 128 AND EXISTS (SELECT 1 FROM messages root WHERE root.id = :parent_id AND root.workspace_id = :workspace_id AND root.channel_id = :channel_id AND root.parent_id IS NULL) AND EXISTS (SELECT 1 FROM messages root WHERE root.id = :parent_id AND root.deleted_at IS NULL)",
+        "INSERT INTO audit_log(id,workspace_id,actor_id,action,target_id,created_at) SELECT :__uuid,:workspace_id,:__user_id,'thread_reply',:message_id,:__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id; membership is enforced in SQL"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "parent_id": {
+          "type": "string",
+          "description": "Root message id in this channel"
+        },
+        "message_id": {
+          "type": "string",
+          "description": "Stable client UUID for retries"
+        },
+        "content": {
+          "type": "string",
+          "description": "Plain-text reply, 1..10000 characters"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "list_thread",
+      "description": "list thread",
+      "operation": "query",
+      "sql": "SELECT id,channel_id,workspace_id,user_id,parent_id,(SELECT COUNT(*) FROM messages reply WHERE reply.parent_id = messages.id AND reply.workspace_id = messages.workspace_id AND reply.channel_id = messages.channel_id AND reply.deleted_at IS NULL) AS reply_count,body,body AS content,created_at,edited_at,deleted_at,(SELECT COALESCE(NULLIF(sender.display_name,''),sender.user_id) FROM workspace_members sender WHERE sender.workspace_id = messages.workspace_id AND sender.user_id = messages.user_id) AS display_name,(SELECT json_group_array(json_object('emoji',grouped.emoji,'count',grouped.count,'reacted',grouped.reacted)) FROM (SELECT r.emoji,COUNT(*) AS count,MAX(r.user_id = :__user_id) AS reacted FROM message_reactions r JOIN workspace_members active ON active.workspace_id = r.workspace_id AND active.user_id = r.user_id WHERE r.workspace_id = messages.workspace_id AND r.channel_id = messages.channel_id AND r.message_id = messages.id GROUP BY r.emoji ORDER BY r.emoji LIMIT 32) grouped) AS reactions FROM messages WHERE parent_id = :parent_id AND EXISTS (SELECT 1 FROM messages root WHERE root.id = :parent_id AND root.workspace_id = :workspace_id AND root.channel_id = :channel_id AND root.parent_id IS NULL) AND workspace_id = :workspace_id AND channel_id = :channel_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id) AND deleted_at IS NULL AND (:before_id IS NULL OR (created_at,id) < (SELECT cursor.created_at,cursor.id FROM messages cursor WHERE cursor.id = :before_id AND cursor.parent_id = :parent_id AND cursor.workspace_id = :workspace_id AND cursor.channel_id = :channel_id)) ORDER BY created_at DESC,id DESC LIMIT 50",
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id; membership is enforced in SQL"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "parent_id": {
+          "type": "string",
+          "description": "Root message id in this channel"
+        },
+        "before_id": {
+          "type": "string",
+          "description": "Older reply id, within this thread",
+          "optional": true
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "get_thread_root",
+      "description": "get thread root",
+      "operation": "query",
+      "sql": "SELECT id,channel_id,workspace_id,user_id,parent_id,(SELECT COUNT(*) FROM messages reply WHERE reply.parent_id = messages.id AND reply.workspace_id = messages.workspace_id AND reply.channel_id = messages.channel_id AND reply.deleted_at IS NULL) AS reply_count,body,body AS content,created_at,edited_at,deleted_at,(SELECT COALESCE(NULLIF(sender.display_name,''),sender.user_id) FROM workspace_members sender WHERE sender.workspace_id = messages.workspace_id AND sender.user_id = messages.user_id) AS display_name,(SELECT json_group_array(json_object('emoji',grouped.emoji,'count',grouped.count,'reacted',grouped.reacted)) FROM (SELECT r.emoji,COUNT(*) AS count,MAX(r.user_id = :__user_id) AS reacted FROM message_reactions r JOIN workspace_members active ON active.workspace_id = r.workspace_id AND active.user_id = r.user_id WHERE r.workspace_id = messages.workspace_id AND r.channel_id = messages.channel_id AND r.message_id = messages.id GROUP BY r.emoji ORDER BY r.emoji LIMIT 32) grouped) AS reactions FROM messages WHERE parent_id IS NULL AND workspace_id = :workspace_id AND channel_id = :channel_id AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channels c WHERE c.workspace_id = :workspace_id AND c.id = :channel_id) AND id = :parent_id LIMIT 1",
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id; membership is enforced in SQL"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "parent_id": {
+          "type": "string",
+          "description": "Root message id in this channel"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "list_mentions",
+      "description": "list mentions",
+      "operation": "query",
+      "sql": "SELECT mention.message_id,mention.channel_id,channel.name AS channel_name,msg.parent_id,COALESCE(msg.parent_id,msg.id) AS root_id,msg.body,mention.created_at,mention.seen_at FROM mentions mention JOIN messages msg ON msg.id = mention.message_id AND msg.workspace_id = mention.workspace_id AND msg.channel_id = mention.channel_id JOIN channels channel ON channel.id = mention.channel_id AND channel.workspace_id = mention.workspace_id JOIN channel_members access ON access.channel_id = mention.channel_id AND access.workspace_id = mention.workspace_id AND access.user_id = :__user_id WHERE mention.workspace_id = :workspace_id AND mention.user_id = :__user_id AND msg.deleted_at IS NULL AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND (:before_id IS NULL OR (mention.created_at,mention.message_id) < (SELECT cursor.created_at,cursor.message_id FROM mentions cursor WHERE cursor.workspace_id = :workspace_id AND cursor.user_id = :__user_id AND cursor.message_id = :before_id)) ORDER BY mention.created_at DESC,mention.message_id DESC LIMIT 50",
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id; membership is enforced in SQL"
+        },
+        "before_id": {
+          "type": "string",
+          "description": "Older mention message id",
+          "optional": true
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "get_mention_count",
+      "description": "get mention count",
+      "operation": "query",
+      "sql": "SELECT COUNT(*) AS count FROM mentions mention JOIN messages msg ON msg.id = mention.message_id AND msg.workspace_id = mention.workspace_id AND msg.channel_id = mention.channel_id JOIN channels channel ON channel.id = mention.channel_id AND channel.workspace_id = mention.workspace_id JOIN channel_members access ON access.channel_id = mention.channel_id AND access.workspace_id = mention.workspace_id AND access.user_id = :__user_id WHERE mention.workspace_id = :workspace_id AND mention.user_id = :__user_id AND msg.deleted_at IS NULL AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND mention.seen_at IS NULL",
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id; membership is enforced in SQL"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "acknowledge_mention",
+      "description": "acknowledge mention. Atomic guarded write plus content-free audit.",
+      "operation": "batch",
+      "statements": [
+        "UPDATE mentions SET seen_at = :__now WHERE workspace_id = :workspace_id AND channel_id = :channel_id AND message_id = :message_id AND user_id = :__user_id AND seen_at IS NULL AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id) AND EXISTS (SELECT 1 FROM channel_members cm WHERE cm.workspace_id = :workspace_id AND cm.channel_id = :channel_id AND cm.user_id = :__user_id)",
+        "INSERT INTO audit_log(id,workspace_id,actor_id,action,target_id,created_at) SELECT :__uuid,:workspace_id,:__user_id,'acknowledge_mention',:message_id,:__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id; membership is enforced in SQL"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel id"
+        },
+        "message_id": {
+          "type": "string",
+          "description": "Mentioned message id"
+        }
+      },
+      "requires_auth": true
+    },
+    {
+      "name": "update_workspace",
+      "description": "update workspace. Atomic guarded write plus content-free audit.",
+      "operation": "batch",
+      "statements": [
+        "UPDATE workspaces SET name = :name WHERE id = :workspace_id AND EXISTS (SELECT 1 FROM workspace_members owner WHERE owner.workspace_id = :workspace_id AND owner.user_id = :__user_id AND owner.role = 'owner') AND length(trim(:name)) BETWEEN 1 AND 100 AND length(:name) <= 100 AND name != :name",
+        "INSERT INTO audit_log(id,workspace_id,actor_id,action,target_id,created_at) SELECT :__uuid,:workspace_id,:__user_id,'update_workspace',:workspace_id,:__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)"
+      ],
+      "params": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Workspace id; membership is enforced in SQL"
+        },
+        "name": {
+          "type": "string",
+          "description": "Workspace name, 1..100 characters"
         }
       },
       "requires_auth": true
