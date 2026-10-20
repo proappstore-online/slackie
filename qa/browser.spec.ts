@@ -1,5 +1,38 @@
 import { expect, test, type Page, type WebSocketRoute } from '@playwright/test'
 
+for (const provider of ['google', 'github']) {
+  test(`${provider} sign-in starts OAuth and restores a mocked new or returning session`, async ({ page }) => {
+    let signedIn = false
+    await page.route('**/.pas/**', async route => {
+      const url = new URL(route.request().url())
+      if (url.pathname === '/.pas/auth/me') return route.fulfill(signedIn
+        ? { json: { id: `${provider}:test`, login: 'test', avatarUrl: null, dateOfBirth: null } }
+        : { status: 401, json: { error: 'not signed in' } })
+      if (url.pathname === '/.pas/auth/start') {
+        expect(url.searchParams.get('provider')).toBe(provider)
+        expect(url.searchParams.get('return_to')).toBe('/?invite=test')
+        signedIn = true
+        return route.fulfill({ status: 302, headers: { location: '/?invite=test' } })
+      }
+      if (url.pathname.endsWith('/actions/workspace_list')) return route.fulfill({ json: { rows: [] } })
+      return route.fulfill({ json: {} })
+    })
+    await page.goto('/?invite=test#fragment')
+    await page.getByRole('button', { name: `Sign in with ${provider === 'google' ? 'Google' : 'GitHub'}`, exact: true }).click()
+    await expect(page.getByText('Create a workspace to get started.')).toBeVisible()
+    await page.reload()
+    await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible()
+  })
+}
+
+test('failed OAuth callback displays the platform error and allows retry', async ({ page }) => {
+  await page.route('**/.pas/**', route => route.fulfill({ status: 401, json: { error: 'not signed in' } }))
+  await page.goto('/#auth_error=invalid_state')
+  await expect(page.getByRole('alert')).toContainText('invalid_state')
+  await expect(page.getByRole('button', { name: 'Sign in with Google', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sign in with GitHub', exact: true })).toBeVisible()
+})
+
 // Browser interaction tests with mocked PAS transport. SQL authorization is
 // tested separately by actions.mjs; these are not hosted PAS integration tests.
 async function fixture(page: Page, roomOpen = false, options: { emptyChannels?: boolean; noWorkspace?: boolean; role?: 'owner' | 'admin' | 'member' } = {}) {
@@ -117,7 +150,7 @@ test('messages escape HTML, retain retry nonce, edit, react, delete, and clear o
   await edited.getByRole('button', { name: 'Delete message', exact: true }).click()
   await expect(page.getByText('Edited message', { exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sign in with GitHub', exact: true })).toBeVisible()
   await expect(page.getByText('<script>plain text</script>', { exact: true })).toHaveCount(0)
 })
 
@@ -340,7 +373,7 @@ test('confirmed sign-out discards channel and thread drafts', async ({ page }) =
   await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Private channel draft')
   await page.getByRole('textbox', { name: 'Reply', exact: true }).fill('Private reply draft')
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sign in with GitHub', exact: true })).toBeVisible()
   await expect(page.getByRole('textbox')).toHaveCount(0)
 })
 
@@ -383,7 +416,7 @@ test('401 from a refresh confirms sign-out and discards private context', async 
   await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Private draft')
   await page.route('**/actions/workspace_list', route => route.fulfill({ status: 401, json: { error: 'unauthorized' } }))
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
-  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sign in with GitHub', exact: true })).toBeVisible()
   await expect(page.getByRole('textbox')).toHaveCount(0)
   await expect(page.getByText('<script>plain text</script>', { exact: true })).toHaveCount(0)
 })

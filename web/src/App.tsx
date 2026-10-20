@@ -1,17 +1,20 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { useAuth } from '@proappstore/sdk'
+import { SignInButton, useAuth } from '@proappstore/sdk'
 import { app, batch, accessLost, errorText, query, type Workspace } from './api'
 import { ChannelShell } from './Channels'
 
 export default function App() {
-  const { user, loading, signIn, signOut } = useAuth(app)
+  const { user, loading, signOut } = useAuth(app)
+  const authError = app.auth.authError
   return <div className="slackie-shell">
     <a href="#conversation" className="skip-link">Skip to conversation</a>
     <header className="slackie-header"><h1>Slackie</h1>{user && <button onClick={signOut}>Sign out</button>}</header>
     {loading ? <p role="status">Checking your session…</p> : user ? <WorkspaceShell key={user.id} />
       : <main id="conversation"><h2>Team conversations, together.</h2>
-        <p>Sign in to open your workspaces. This foundation requires a configured PAS host.</p>
-        <button onClick={signIn}>Sign in</button></main>}
+        <p>Sign in or create your account to open your workspaces.</p>
+        {authError && <p role="alert">Sign-in could not be completed. Please try again. If this continues, report this code: {authError}</p>}
+        <SignInButton app={app} provider="google" label="Sign in with Google" />{' '}
+        <SignInButton app={app} provider="github" label="Sign in with GitHub" /></main>}
   </div>
 }
 
