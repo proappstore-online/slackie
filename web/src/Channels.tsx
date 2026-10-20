@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { createChannel, errorText, getChannels, getMentionCount, type Channel, type Workspace } from './api'
+import { createChannel, accessLost, errorText, getChannels, getMentionCount, type Channel, type Workspace } from './api'
 import { Conversation } from './Conversation'
 import { Members } from './Members'
 import { Modal } from './Modal'
@@ -40,9 +40,10 @@ export function ChannelShell({ workspace, onWorkspaceChanged }: { workspace: Wor
         const rows = await getChannels(workspace.id)
         if (active) {
           setChannels(rows)
+          setError('')
           setSelected(current => rows.some(row => row.id === current) ? current : rows[0]?.id ?? '')
         }
-      } catch (err) { if (active) { setChannels([]); setError(errorText(err)) } }
+      } catch (err) { if (active) { if (accessLost(err)) { setChannels([]); setSelected(''); setRequestedThread(null) }; setError(errorText(err)) } }
       finally { pending = false; if (active) setLoading(false) }
     }
     void load()

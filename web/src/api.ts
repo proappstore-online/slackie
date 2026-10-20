@@ -1,4 +1,4 @@
-import { initPro } from '@proappstore/sdk'
+import { ActionError, initPro } from '@proappstore/sdk'
 export const app = initPro({ appId: 'slackie', authMode: 'platform-cookie' })
 export const CHANNEL_TYPES = ['public', 'private'] as const
 // UI capability vocabulary; SQL roles enforce permissions, never these constants.
@@ -22,6 +22,9 @@ export async function batch(name: string, params: Record<string, unknown>): Prom
   return result.results.map(row => row.meta.changes)
 }
 export const errorText = (error: unknown) => error instanceof Error ? error.message : 'Request failed. Please retry.'
+// The SDK clears auth on 401. Only an explicit access refusal should discard
+// private component state; network errors and service failures are retryable.
+export const accessLost = (error: unknown) => error instanceof ActionError && (error.status === 401 || error.status === 403)
 
 async function write(name: string, params: Record<string, unknown>) {
   const changes = await batch(name, params)

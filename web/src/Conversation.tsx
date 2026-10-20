@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { app, errorText, getMessages, joinChannel, leaveChannel, notifyChanges, sendMessage, type Channel, type Message, type Role } from './api'
+import { app, accessLost, errorText, getMessages, joinChannel, leaveChannel, notifyChanges, sendMessage, type Channel, type Message, type Role } from './api'
 import { ChannelDetails } from './ChannelDetails'
 import { submitOnEnter } from './composer'
 import { MessageCard } from './MessageCard'
@@ -43,7 +43,7 @@ export function Conversation({ channel, role, onChannelsChange, requestedThread 
           }
           if (active) { setMessages(rows); setHasMore(more); setError('') }
         } catch (err) {
-          if (active) { setMessages([]); setError(errorText(err)) }
+          if (active) { if (accessLost(err)) { setMessages([]); setDraft(''); setThread(null); nonce.current = null }; setError(errorText(err)) }
         } finally { if (active) setLoading(false) }
       })()
       try { await currentRequest } finally { currentRequest = null }

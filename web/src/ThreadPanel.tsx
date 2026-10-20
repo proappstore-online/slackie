@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
-import { errorText, getThreadRoot, listThread, threadReply, type Channel, type Message, type Role } from './api'
+import { accessLost, errorText, getThreadRoot, listThread, threadReply, type Channel, type Message, type Role } from './api'
 import { submitOnEnter } from './composer'
 import { MessageCard } from './MessageCard'
 
@@ -34,7 +34,7 @@ export function ThreadPanel({ channel, parentId, role, onClose, onChanged }: { c
         try {
           const context = await getThreadRoot(params)
           if (!active) return
-          if (!context) { setRoot(null); setReplies([]); setError('This thread is unavailable or access has changed.'); return }
+          if (!context) { setRoot(null); setReplies([]); setDraft(''); pending.current = null; setError('This thread is unavailable or access has changed.'); return }
           let rows: Message[] = []; let more = false
           for (let page = 0; page < pages; page++) {
             const next = await listThread({ ...params, ...(rows.length ? { before_id: rows.at(-1)!.id } : {}) })
@@ -43,7 +43,7 @@ export function ThreadPanel({ channel, parentId, role, onClose, onChanged }: { c
             if (!more) break
           }
           if (active) { setRoot(context); setReplies(rows); setHasMore(more); setError('') }
-        } catch (err) { if (active) { setRoot(null); setReplies([]); setError(errorText(err)) } }
+        } catch (err) { if (active) { if (accessLost(err)) { setRoot(null); setReplies([]); setDraft(''); pending.current = null }; setError(errorText(err)) } }
         finally { if (active) setLoading(false) }
       })()
       try { await request } finally { request = null }

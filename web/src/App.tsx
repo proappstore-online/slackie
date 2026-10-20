@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useAuth } from '@proappstore/sdk'
-import { app, batch, errorText, query, type Workspace } from './api'
+import { app, batch, accessLost, errorText, query, type Workspace } from './api'
 import { ChannelShell } from './Channels'
 
 export default function App() {
@@ -34,9 +34,10 @@ function WorkspaceShell() {
         const rows = await query<Workspace>('workspace_list')
         if (active) {
           setWorkspaces(rows)
+          setError('')
           setSelected(current => rows.some(row => row.id === current) ? current : rows[0]?.id ?? '')
         }
-      } catch (err) { if (active) { setWorkspaces([]); setSelected(''); setError(errorText(err)) } }
+      } catch (err) { if (active) { if (accessLost(err)) { setWorkspaces([]); setSelected('') }; setError(errorText(err)) } }
       finally { pending = false; if (active) setLoading(false) }
     }
     void load()
