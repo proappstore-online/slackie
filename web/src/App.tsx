@@ -26,6 +26,8 @@ function WorkspaceShell() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const nameInvalid = name.length > 0 && !/^[a-z0-9_-]+$/.test(name)
+  const nameHelp = 'Workspace name must be lowercase with no spaces. Use lowercase letters, numbers, underscores or hyphens, for example: my-team.'
   const createId = useRef(crypto.randomUUID())
   useEffect(() => {
     let active = true
@@ -50,12 +52,15 @@ function WorkspaceShell() {
     return () => { active = false; clearInterval(timer); window.removeEventListener('focus', focus) }
   }, [])
   async function create(event: FormEvent) {
+    if (nameInvalid || !name) { event.preventDefault(); setError(nameHelp); return }
     event.preventDefault(); setBusy(true); setError('')
     try {
       const id = createId.current
-      await batch('workspace_create', { workspace_id: id, name: name.trim(), slug })
+      const changes = await batch('workspace_create', { workspace_id: id, name, slug })
       const rows = await query<Workspace>('workspace_list')
-      if (!rows.some(row => row.id === id)) throw new Error('Workspace was not created. Check the slug and retry.')
+      if (!rows.some(row => row.id === id)) throw new Error(changes[0]
+        ? 'Workspace was not created. Check the slug and retry.'
+        : 'Workspace name must be lowercase with no spaces (letters, numbers, underscores or hyphens). Check that the slug is unique.')
       setWorkspaces(rows); setSelected(id); setName(''); setSlug(''); createId.current = crypto.randomUUID()
     } catch (err) { setError(errorText(err)) } finally { setBusy(false) }
   }
@@ -68,10 +73,11 @@ function WorkspaceShell() {
         {workspaces.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
       </select></label>
       <details><summary>Create a workspace</summary><form onSubmit={create} className="slackie-form">
-        <label>Name <input required maxLength={100} value={name} onChange={event => setName(event.target.value)} /></label>
+        <label>Name <input required maxLength={100} pattern="[a-z0-9_-]+" title={nameHelp} value={name} onChange={event => setName(event.target.value)} aria-invalid={nameInvalid} aria-describedby="workspace-name-help" /></label>
+        <small id="workspace-name-help" role={nameInvalid ? 'alert' : undefined}>{nameHelp}</small>
         <label>Slug <input required maxLength={80} pattern="[a-z0-9-]+" value={slug} onChange={event => setSlug(event.target.value)} aria-describedby="slug-help" /></label>
         <small id="slug-help">Lowercase letters, numbers, and hyphens.</small>
-        <button aria-label="Create workspace" disabled={busy || loading}>{busy ? 'Creating…' : 'Create workspace'}</button>
+        <button aria-label="Create workspace" disabled={busy || loading || !name || nameInvalid}>{busy ? 'Creating…' : 'Create workspace'}</button>
       </form></details>
     </section>
     {error && <p role="alert">{error}</p>}

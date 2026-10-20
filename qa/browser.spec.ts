@@ -248,7 +248,7 @@ test('administrator settings cannot change the workspace name', async ({ page })
 test('first-run onboarding creates workspace then general with a welcome hint', async ({ page }) => {
   await fixture(page, false, { noWorkspace: true, emptyChannels: true })
   await page.getByText('Create a workspace', { exact: true }).click()
-  await page.getByLabel('Name', { exact: true }).fill('New team')
+  await page.getByLabel('Name', { exact: true }).fill('new-team')
   await page.getByLabel('Slug', { exact: true }).fill('new-team')
   await page.getByRole('button', { name: 'Create workspace', exact: true }).click()
   await page.getByRole('button', { name: 'Create your first channel', exact: true }).click()
@@ -457,4 +457,39 @@ test('forced colors exposes message actions and preserves dialog keyboard focus'
   await page.emulateMedia({ forcedColors: 'none' })
   await page.getByRole('heading', { name: 'Slackie', exact: true }).hover()
   await expect(actions).toHaveCSS('opacity', '0')
+})
+
+ test('workspace names validate immediately and only valid names submit', async ({ page }) => {
+ const state = await fixture(page, false, { noWorkspace: true, emptyChannels: true })
+ await page.getByText('Create a workspace', { exact: true }).click()
+ const name = page.getByLabel('Name', { exact: true })
+ const submit = page.getByRole('button', { name: 'Create workspace', exact: true })
+ await page.getByLabel('Slug', { exact: true }).fill('valid-team')
+ for (const invalid of ['Uppercase', 'has spaces', ' leading', 'trailing ', 'tab\tname', 'nonbreaking\u00a0space']) {
+ await name.fill(invalid)
+ await expect(name).toHaveAttribute('aria-invalid', 'true')
+ await expect(page.getByRole('alert')).toContainText('Workspace name must be lowercase with no spaces')
+ await expect(submit).toBeDisabled()
+ await name.press('Enter')
+ expect(state.calls.filter(call => call.name === 'workspace_create')).toHaveLength(0)
+ }
+ await name.fill('valid-team')
+ await expect(name).toHaveAttribute('aria-invalid', 'false')
+ await expect(submit).toBeEnabled()
+ await submit.click()
+ await expect(page.getByRole('combobox').first()).toContainText('valid-team')
+ expect(state.calls.find(call => call.name === 'workspace_create')?.params.name).toBe('valid-team')
+ })
+
+test('workspace creation explains a server refusal', async ({ page }) => {
+  await fixture(page, false, { noWorkspace: true, emptyChannels: true })
+  await page.route('**/actions/workspace_create', route => route.fulfill({
+    json: { results: Array.from({ length: 5 }, () => ({ meta: { changes: 0 } })) },
+  }))
+  await page.getByText('Create a workspace', { exact: true }).click()
+  await page.getByLabel('Name', { exact: true }).fill('my-workspace')
+  await page.getByLabel('Slug', { exact: true }).fill('my-workspace')
+  await page.getByRole('button', { name: 'Create workspace', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Workspace name must be lowercase with no spaces')
+  await expect(page.getByLabel('Name', { exact: true })).toHaveValue('my-workspace')
 })

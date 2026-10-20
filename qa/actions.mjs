@@ -91,8 +91,8 @@ for (const name of Object.keys(TOOLS)) {
   try { call(name, null, {}) } catch { rejected = true }
   ok(rejected, name + ' requires identity')
 }
-ok(call('workspace_create', 'owner', { ...W, name: 'One', slug: 'one' })[0] === 1, 'create workspace and initial owner')
-ok(call('workspace_create', 'other', { workspace_id: 'w2', name: 'Two', slug: 'two' })[0] === 1, 'create independent workspace')
+ok(call('workspace_create', 'owner', { ...W, name: 'one', slug: 'one' })[0] === 1, 'create workspace and initial owner')
+ok(call('workspace_create', 'other', { workspace_id: 'w2', name: 'two', slug: 'two' })[0] === 1, 'create independent workspace')
 denied('workspace_create', 'outsider', { ...W, name: 'Hijack', slug: 'hijack' })
 denied('workspace_create', 'owner', { ...W, name: 'Retry', slug: 'one' })
 ok(call('workspace_get', 'outsider', W).length === 0, 'workspace_get hides tenant')
@@ -220,7 +220,7 @@ const NW = { workspace_id: 'collab' }
 const NC = { ...NW, channel_id: 'public-collab' }
 const NP = { ...NW, channel_id: 'private-collab' }
 const NM = { ...NC, message_id: 'collab-message' }
-call('workspace_create', 'boss', { ...NW, name: 'Collaboration', slug: 'collab' })
+call('workspace_create', 'boss', { ...NW, name: 'collaboration', slug: 'collab' })
 for (const [user_id,role] of [['staff','admin'],['writer','member'],['teammate','member']]) call('workspace_member_add','boss',{...NW,user_id,role})
 call('create_channel','boss',{...NC,name:'general'})
 call('create_channel','boss',{...NP,name:'private',is_private:1})
@@ -328,7 +328,7 @@ ok(call('can_join_channel','collision-b',collisionRoom).length===0,'delimiter co
 
 // Threads, server-derived mentions, and settings.
 const AW={workspace_id:'attention'}, AC={...AW,channel_id:'attention-public'}, AP={...AW,channel_id:'attention-private'}
-call('workspace_create','towner',{...AW,name:'Attention',slug:'attention'})
+call('workspace_create','towner',{...AW,name:'attention',slug:'attention'})
 for(const [user_id,role] of [['alice','member'],['bob','member'],['tadmin','admin']]) call('workspace_member_add','towner',{...AW,user_id,role})
 call('create_channel','towner',{...AC,name:'team'})
 call('create_channel','towner',{...AP,name:'private',is_private:1})
@@ -431,7 +431,7 @@ denied('update_member_role','towner',{...AW,user_id:'towner',role:'admin'})
 denied('remove_member','tadmin',{...AW,user_id:'towner'})
 // Mention keyset pagination and repeated-token parsing stay bounded.
 const PW={workspace_id:'mention-pages'}, PC={...PW,channel_id:'mention-page-channel'}
-call('workspace_create','sender',{...PW,name:'Paged mentions',slug:'mention-pages'})
+call('workspace_create','sender',{...PW,name:'paged-mentions',slug:'mention-pages'})
 call('workspace_member_add','sender',{...PW,user_id:'receiver'})
 call('create_channel','sender',{...PC,name:'team'})
 call('join_channel','receiver',PC)
@@ -445,7 +445,7 @@ call('send_message','sender',{...PC,message_id:'dense-mentions',content:' @reade
 ok(call('list_mentions','receiver',PW).filter(row=>row.message_id==='dense-mentions').length===1,'dense repeated mentions create one attention item per recipient')
 // Both compatibility names must derive mentions and activity without schema-side writes.
 const FW = { workspace_id: 'baseline-actions' }, FC = { ...FW, channel_id: 'baseline-channel' }
-call('workspace_create', 'base-owner', { ...FW, name: 'Baseline', slug: 'baseline-actions' })
+call('workspace_create', 'base-owner', { ...FW, name: 'baseline', slug: 'baseline-actions' })
 call('workspace_member_add', 'base-owner', { ...FW, user_id: 'base-reader' })
 call('create_channel', 'base-owner', { ...FC, name: 'general' })
 call('join_channel', 'base-reader', FC)
@@ -474,4 +474,19 @@ for (const [send, edit, remove, field] of [['message_send','message_edit','messa
 ok(db.prepare('PRAGMA foreign_key_check').all().length === 0, 'all action batches preserve foreign keys')
 ok(db.prepare('SELECT count(*) AS n FROM audit_log a LEFT JOIN activity_log l ON l.id=a.id WHERE l.id IS NULL').get().n === 0, 'all successful actions mirror activity exactly once')
 ok(db.prepare("SELECT count(*) AS n FROM activity_log WHERE changes != '{}'").get().n === 0, 'all operation markers finalized')
+
+
+for (const name of ['Uppercase', 'has spaces', ' leading', 'trailing ', 'tab\tname', 'line\nname', 'nonbreaking\u00a0space', '?quipe', 'bad.name', '', 'a'.repeat(101)]) {
+ const workspace_id = randomUUID()
+ denied('workspace_create', 'validation-owner', { workspace_id, name, slug: workspace_id })
+ ok(db.prepare('SELECT count(*) AS n FROM workspaces WHERE id = ?').get(workspace_id).n === 0, 'invalid name creates no workspace')
+ ok(db.prepare('SELECT count(*) AS n FROM workspace_members WHERE workspace_id = ?').get(workspace_id).n === 0, 'invalid name creates no membership')
+}
+
+for (const name of ['my-workspace', 'team_123']) {
+ const workspace_id = randomUUID()
+ ok(call('workspace_create', 'validation-owner', { workspace_id, name, slug: workspace_id })[0] === 1, 'valid lowercase name creates workspace')
+ ok(call('workspace_get', 'validation-owner', { workspace_id })[0].name === name, 'valid workspace is readable by its owner')
+}
+
 console.log('Passed ' + checks + ' assertions across all '+Object.keys(TOOLS).length+' actions.')
