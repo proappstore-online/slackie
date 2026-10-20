@@ -1,11 +1,23 @@
 # Slackie
 
-Slackie is a team communication app foundation for ProAppStore. This repository
-contains the design library, registered SQL actions, additive migrations, a
-React/Vite channel conversations with threads and mentions, member management,
-workspace settings, onboarding, and local authorization tests.
-Hosted use requires PAS setup; this is not production-ready. No deployment
-workflow is enabled.
+Slackie is a Slack-style team messaging MVP on ProAppStore (PAS). It implements
+multi-workspace conversations with strict workspace and private-channel access
+checks. The current build passes local tests but has outstanding acceptance and
+release gates; it is not production-ready.
+
+## Architecture and features
+
+- PAS platform-cookie authentication and authenticated registered SQL actions
+  in `mcp.json`; the browser never decides authorization.
+- D1 relational storage with additive migrations in `migrations.json`.
+- React/Vite frontend; protected PAS rooms carry body-free refetch hints,
+  with ten-second polling when realtime is unavailable.
+- Workspaces, public/private channels, messages, edits/deletion, reactions,
+  threads, mentions and an in-app notification inbox, member roles/profiles,
+  owner-only workspace renaming, and onboarding.
+
+Notifications currently mean in-app mentions, not push/email delivery. Guests,
+DMs, attachments, search, integrations, huddles, enterprise, and AI are deferred.
 
 ## Product in one sentence
 
@@ -13,17 +25,36 @@ A focused workspace for small teams to hold channel conversations.
 
 ## Current status
 
-Foundation scaffold. No PAS app, database, worker, or public route has been
-provisioned from this repository. See [implementation status](docs/implementation-foundation.md)
-for the provisional schema and remaining release gates.
+The feature implementation is incomplete against the canonical epic backlog.
+See [implementation decisions and acceptance review](docs/implementation-foundation.md)
+for schema choices, verification evidence, and the remaining gates for each issue.
 
-Requires Node 24 (used in CI) and pnpm 10.30.3. Run `pnpm install`, `pnpm test`, and
-`pnpm build`. `pnpm dev` serves the app shell; hosted PAS actions require
-separate platform setup. `pnpm build` runs the platform compliance check first.
+## Development
 
-Browser interaction tests use mocked PAS transport: run `pnpm exec playwright
-install chromium`, then `pnpm test:browser`. An existing Chrome/Edge executable
-can be selected with `SLACKIE_BROWSER`. These tests do not validate hosted PAS.
+Requires Node 24 (used in CI) and pnpm 10.30.3:
+
+```sh
+pnpm install && pnpm test
+pnpm exec playwright install chromium
+pnpm test:browser
+pnpm dev
+pnpm build
+```
+
+`pnpm test` runs typecheck and the SQL authorization/assertion suite. Browser
+tests are a separate `pnpm test:browser` command and use mocked PAS transport;
+they do not validate hosted PAS. An installed Chrome/Edge executable can be
+selected with `SLACKIE_BROWSER` instead of installing Chromium.
+
+`pnpm build` runs the platform compliance check first. Hosted authentication,
+actions, and rooms require separate PAS setup; a local Vite server alone does
+not supply those services.
+
+## Deployment
+
+Deployment targets PAS hosting and is managed through the platform. No PAS app,
+database, worker, or public route has been provisioned or deployed from this
+repository, and no deployment workflow is enabled.
 
 ## Design library
 
@@ -36,6 +67,7 @@ can be selected with `SLACKIE_BROWSER`. These tests do not validate hosted PAS.
 - [Security and trust model](docs/security-and-trust.md)
 - [Delivery roadmap](docs/roadmap.md)
 - [Epics and tasks](docs/epics/README.md)
+- [Architecture decision records](docs/adr/)
 
 ## Naming
 

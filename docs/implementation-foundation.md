@@ -155,6 +155,37 @@ does not close those broader epics or replace their acceptance criteria.
 
 ## Remaining gates
 
+### Acceptance review — 2026-10-20
+
+The final local review passed typecheck, 499 SQL assertions across 47 registered
+actions, and 12 browser scenarios with mocked PAS transport. `pnpm test` runs
+typecheck/SQL; `pnpm test:browser` runs the browser suite separately. Passing these
+checks does not complete all canonical epic tasks or establish hosted readiness.
+All ten issues below remain open; none qualifies for an unconditional
+"all MVP acceptance criteria implemented" closure comment on this evidence.
+
+| Issue | Canonical epic | Remaining work preventing full closure |
+| --- | --- | --- |
+| #1 | E0 Foundation | Product differentiation, role/privacy ratification, journey evidence, canonical ID and retention/purge decisions. |
+| #7 | E1 Workspaces | Secure invitation lifecycle, membership statuses/leave, ownership transfer, and the E9 governance gate. |
+| #5 | E2 Channels | Private-channel member removal/recovery, retained-content policy, and hosted authorization evidence. |
+| #2 | E3 Conversations | Thread follow/read state, optimistic/canonical send reconciliation, retention policy, and durable change-feed handoff. |
+| #6 | E4 Realtime | Hosted join/revocation and capacity/load/abuse validation, plus the E10 convergence contract. |
+| #3 | E5 Trust/quality | Confidential reports/moderation, abuse/rate controls, full accessibility evidence, and security/supply-chain release gates. |
+| #4 | E6 Validation | Five target-team usability sessions, findings disposition, instrumentation, and release/runbook review. |
+| #8 | E9 Identity/governance | Accepted/step-up ownership transfer, full membership lifecycle, hashed/bound expiring/revocable invites, and retention/export/deletion policy. |
+| #12 | E10 Durable sync | Atomic body-free change feed, durable cursors/expiry, revision conflict rules, service envelope, and chaos/multi-device evidence. |
+| #10 | E11 Attention | Monotonic/manual-unread and thread read/follow/mute semantics, full Activity and notification preferences, plus E10 integration. |
+
+Owner/admin/member SQL checks, owner protection, and private-channel isolation
+are implemented and tested. They are only part of #8: refusing owner removal is
+not an ownership-transfer lifecycle, and direct member insertion is not secure
+invitation acceptance. Guests remain disabled under the adopted MVP scope;
+this review does not introduce guest, DM, or search implementation requirements.
+
+Key build decisions are recorded above and in `docs/adr/`. There is no
+`docs/decisions/` directory. No deployment/provisioning is authorized by this review.
+
 E0 product/privacy decisions; E1/E9 invitation binding, expiry/revocation,
 membership statuses, ownership transfer/step-up and governance; generic
 conversations; thread follow/mute/read cursors; revision conflicts; durable body-free change feed and
