@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { app, errorText, getMessages, joinChannel, leaveChannel, notifyChanges, sendMessage, type Channel, type Message, type Role } from './api'
 import { ChannelDetails } from './ChannelDetails'
+import { submitOnEnter } from './composer'
 import { MessageCard } from './MessageCard'
 import { ThreadPanel } from './ThreadPanel'
 
@@ -122,9 +123,7 @@ export function Conversation({ channel, role, onChannelsChange, requestedThread 
       )}</ol>{!loading && !messages.length && <p>No messages yet.</p>}<div ref={endRef} /></div>
       <form onSubmit={send} className="slackie-form"><label>Message
         <textarea required maxLength={10000} value={draft} disabled={busy || !!channel.is_archived} aria-describedby="send-help"
-          onChange={event => setDraft(event.target.value)} onKeyDown={event => {
-            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit() }
-          }} /></label>
+          onChange={event => setDraft(event.target.value)} onKeyDown={submitOnEnter} /></label>
         <small id="send-help">Enter or Ctrl+Enter sends. Shift+Enter adds a line. Use @handles from Members to mention teammates.</small>
         <button disabled={busy || loading || !!channel.is_archived || !draft.trim()}>Send message</button>
       </form></section>{thread && <ThreadPanel key={thread} channel={channel} parentId={thread} role={role} onClose={() => setThread(null)} onChanged={changed} />}</div>

@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { errorText, getThreadRoot, listThread, threadReply, type Channel, type Message, type Role } from './api'
+import { submitOnEnter } from './composer'
 import { MessageCard } from './MessageCard'
 
 export function ThreadPanel({ channel, parentId, role, onClose, onChanged }: { channel: Channel; parentId: string; role: Role; onClose: () => void; onChanged: () => Promise<void> }) {
@@ -81,9 +82,7 @@ export function ThreadPanel({ channel, parentId, role, onClose, onChanged }: { c
       )}</ol>{!replies.length && <p>No replies yet.</p>}<div ref={endRef} /></div>
       <form onSubmit={submit} className="slackie-form"><label>Reply
         <textarea required maxLength={10000} value={draft} disabled={busy || !!channel.is_archived || root.deleted_at !== null}
-          onChange={event => setDraft(event.target.value)} onKeyDown={event => {
-            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit() }
-          }} /></label><button disabled={busy || !!channel.is_archived || root.deleted_at !== null || !draft.trim()}>Send reply</button>
+          onChange={event => setDraft(event.target.value)} onKeyDown={submitOnEnter} /></label><button disabled={busy || !!channel.is_archived || root.deleted_at !== null || !draft.trim()}>Send reply</button>
       </form>
     </>}
   </section>

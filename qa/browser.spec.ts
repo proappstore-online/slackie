@@ -262,3 +262,21 @@ test('message edit locks the draft until the save finishes', async ({ page }) =>
   await expect(message.getByText('Saved draft', { exact: true })).toBeVisible()
   expect(state.calls.filter(call => call.name === 'edit_message')).toHaveLength(1)
 })
+
+test('channel and thread composers keep Shift+Enter and IME Enter as draft input', async ({ page }) => {
+  const state = await fixture(page)
+  await page.getByRole('button', { name: 'Reply in thread (0)', exact: true }).click()
+  for (const name of ['Message', 'Reply']) {
+    const composer = page.getByRole('textbox', { name, exact: true })
+    await composer.fill('First line')
+    await composer.press('End')
+    await composer.press('Shift+Enter')
+    await expect(composer).toHaveValue('First line\n')
+    await composer.dispatchEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true, cancelable: true })
+    await expect(composer).toHaveValue('First line\n')
+    expect(state.calls.filter(call => ['send_message', 'thread_reply'].includes(call.name))).toHaveLength(name === 'Message' ? 0 : 1)
+    await composer.press('Enter')
+    await expect(composer).toHaveValue('')
+  }
+  expect(state.calls.filter(call => ['send_message', 'thread_reply'].includes(call.name))).toHaveLength(2)
+})
