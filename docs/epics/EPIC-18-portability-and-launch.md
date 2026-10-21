@@ -30,3 +30,16 @@
 - Import/export logs diagnose failure without revealing source content.
 - Beta and GA cannot be claimed until their respective definitions of done are
   evidenced, including incident/on-call, recovery-target, and policy gates.
+
+## Design deliverable and review status
+
+[Portability, analytics and launch design](../design/portability-analytics-and-launch.md)
+specifies E18.1–E18.5: scoped export manifests/delivery, safe archive discovery and
+historical attribution, resumable staging/publication, aggregate analytics and
+separate beta/GA evidence requirements. Its acceptance matrix defines future
+service tests; `qa/actions.mjs` covers existing SQL prerequisites only.
+
+The design deliverable is complete. Task checkboxes remain open for independent
+review and the G1–G5 approvals; no services, launch readiness, policy approval or
+PAS provisioning are claimed. E9/E12/E13 and private-storage dependencies remain
+explicit. Build-ready child issues must wait until the decision gates close.

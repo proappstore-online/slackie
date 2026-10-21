@@ -629,4 +629,80 @@ for (const secret of [sensitiveBody, 'evidence-secret', 'sensitive@example.inval
  ok(!trustLogs.includes(secret), 'domain audit omits sensitive marker ' + secret.split(' ')[0])
 ok(db.prepare('PRAGMA foreign_key_check').all().length === 0, 'E13 prerequisites preserve foreign keys')
 
+// E18 prerequisites only: current actions are not an importer/exporter. Exercise
+// paged source reads and stable-key retries without inventing a second auth model.
+const PW18 = { workspace_id: 'portability-boundary' }
+const PC18 = { ...PW18, channel_id: 'portability-private' }
+const PO18 = { ...PW18, channel_id: 'portability-other' }
+call('workspace_create', 'portability-owner', { ...PW18, name: 'portability', slug: 'portability-boundary' })
+for (const user_id of ['portability-reader', 'portability-admin'])
+ call('workspace_member_add', 'portability-owner', { ...PW18, user_id })
+call('update_member_role', 'portability-owner', { ...PW18, user_id: 'portability-admin', role: 'admin' })
+call('create_channel', 'portability-owner', { ...PC18, name: 'restricted', is_private: 1 })
+call('create_channel', 'portability-owner', { ...PO18, name: 'separate', is_private: 1 })
+call('invite_to_channel', 'portability-owner', { ...PC18, user_id: 'portability-reader' })
+// Leave requires another channel so a member retains a navigation destination.
+call('invite_to_channel', 'portability-owner', { ...PO18, user_id: 'portability-reader' })
+const portabilitySecret = 'archive-body-secret https://example.invalid/?token=archive-secret'
+// Equal timestamps exercise the stable ID tie-breaker across the 50-row boundary.
+fixedNow = ++clock
+for (let i = 0; i < 55; i++)
+ call('send_message', 'portability-owner', { ...PC18, message_id: 'portability-' + String(i).padStart(3, '0'), content: portabilitySecret })
+fixedNow = null
+call('send_message', 'portability-owner', { ...PO18, message_id: 'portability-foreign-cursor', content: 'other private source' })
+for (const read of ['message_list', 'get_messages']) {
+ const page = call(read, 'portability-reader', PC18)
+ const next = call(read, 'portability-reader', { ...PC18, before_id: page.at(-1).id })
+ ok(page.length === 50 && next.length === 5, read + ' E18 source pagination crosses equal-time boundary')
+ ok(new Set([...page, ...next].map(row => row.id)).size === 55, read + ' E18 source pagination has no repeats or omissions')
+ ok([...page, ...next].every(row => row.workspace_id === PW18.workspace_id && row.channel_id === PC18.channel_id), read + ' E18 pages stay within canonical scope')
+ for (const before_id of ['portability-foreign-cursor', 'missing-portability-cursor'])
+  ok(call(read, 'portability-reader', { ...PC18, before_id }).length === 0, read + ' E18 rejects unavailable cursor')
+ for (const actor of ['portability-admin', 'outsider'])
+  ok(call(read, actor, PC18).length === 0, read + ' E18 role or guessed ID cannot authorize private source')
+ ok(call(read, 'portability-reader', { ...PC18, workspace_id: 'w2' }).length === 0, read + ' E18 denies forged tenant')
+ call('leave_channel', 'portability-reader', PC18)
+ ok(call(read, 'portability-reader', { ...PC18, before_id: page.at(-1).id }).length === 0, read + ' E18 reauthorizes continuation after channel revocation')
+ call('invite_to_channel', 'portability-owner', { ...PC18, user_id: 'portability-reader' })
+}
+// Both aliases share stable message/reaction keys and must not duplicate effects.
+const PM18 = { ...PC18, message_id: 'portability-stable-key' }
+ok(call('message_send', 'portability-reader', { ...PM18, body: portabilitySecret })[0] === 1, 'E18 stable message key accepted once')
+for (const [send, field] of [['message_send', 'body'], ['send_message', 'content']])
+ denied(send, 'portability-reader', { ...PM18, [field]: 'changed retry payload' })
+const stored18 = db.prepare('SELECT user_id,body FROM messages WHERE id=?').get(PM18.message_id)
+ok(stored18.user_id === 'portability-reader' && stored18.body === portabilitySecret, 'E18 retry preserves bound author and original payload')
+ok(db.prepare('SELECT count(*) AS n FROM audit_log WHERE target_id=?').get(PM18.message_id).n === 1, 'E18 duplicate send adds no success event')
+const PR18 = { ...PM18, emoji: 'thumbsup' }
+ok(call('reaction_add', 'portability-reader', PR18)[0] === 1, 'E18 reaction key accepted once')
+for (const react of ['reaction_add', 'add_reaction']) denied(react, 'portability-reader', PR18)
+ok(call('get_reactions', 'portability-reader', PM18)[0].count === 1, 'E18 alias retry leaves one reaction')
+// A failed batch must not consume a stable key or leave a reaction/event behind.
+for (const react of ['reaction_add', 'add_reaction']) {
+ const target = { ...PM18, emoji: react }
+ failWriteTo = 'audit_log'
+ let failed = false
+ try { call(react, 'portability-reader', target) } catch { failed = true }
+ failWriteTo = null
+ ok(failed, react + ' E18 audit failure aborts batch')
+ ok(db.prepare('SELECT count(*) AS n FROM message_reactions WHERE message_id=? AND emoji=?').get(PM18.message_id, react).n === 0, react + ' E18 failed batch leaves no reaction')
+ ok(call(react, 'portability-reader', target)[0] === 1, react + ' E18 retry after rollback succeeds')
+ denied(react, 'portability-reader', target)
+}
+call('delete_message', 'portability-reader', PM18)
+for (const read of ['message_list', 'get_messages'])
+ ok(!call(read, 'portability-reader', PC18).some(row => row.id === PM18.message_id), read + ' E18 fresh extraction excludes deleted text')
+ok(call('get_reactions', 'portability-reader', PM18).length === 0, 'E18 tombstone hides derived reaction data')
+call('workspace_member_remove', 'portability-owner', { ...PW18, user_id: 'portability-reader' })
+for (const read of ['message_list', 'get_messages'])
+ ok(call(read, 'portability-reader', { ...PC18, before_id: 'portability-050' }).length === 0, read + ' E18 denies next page after workspace revocation')
+const portabilityLogs = JSON.stringify({
+ audit: db.prepare('SELECT * FROM audit_log WHERE workspace_id=?').all(PW18.workspace_id),
+ activity: db.prepare('SELECT * FROM activity_log WHERE workspace_id=?').all(PW18.workspace_id),
+})
+for (const secret of [portabilitySecret, 'archive-body-secret', 'token=archive-secret', 'changed retry payload'])
+ ok(!portabilityLogs.includes(secret), 'E18 operation logs omit source content marker ' + secret.split(' ')[0])
+ok(db.prepare('PRAGMA foreign_key_check').all().length === 0, 'E18 prerequisites preserve foreign keys')
+ok(db.prepare("SELECT count(*) AS n FROM activity_log WHERE changes != '{}'").get().n === 0, 'E18 leaves no unfinished operation markers')
+
 console.log('Passed ' + checks + ' assertions across all '+Object.keys(TOOLS).length+' actions.')
