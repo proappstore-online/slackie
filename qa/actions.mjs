@@ -532,4 +532,43 @@ ok(call('leave_channel', 'enterprise-owner', EC)[0] === 1, 'owner leaves restric
 for (const [name, params] of enterpriseReads)
  ok(call(name, 'enterprise-owner', params).length === 0, name + ' denies private content to owner outside channel')
 
+// E15 prerequisite only: an app-supplied target never replaces the bound actor.
+// No bot/OAuth runtime is implemented by these human SQL authorization tests.
+const IW = { workspace_id: 'integration-boundary' }
+const IC = { ...IW, channel_id: 'integration-public' }
+const IP = { ...IW, channel_id: 'integration-private' }
+call('workspace_create', 'integration-owner', { ...IW, name: 'integrations', slug: 'integration-boundary' })
+for (const user_id of ['integration-actor', 'integration-bystander'])
+ call('workspace_member_add', 'integration-owner', { ...IW, user_id })
+call('create_channel', 'integration-owner', { ...IC, name: 'general' })
+call('create_channel', 'integration-owner', { ...IP, name: 'restricted', is_private: 1 })
+call('join_channel', 'integration-actor', IC)
+call('invite_to_channel', 'integration-owner', { ...IP, user_id: 'integration-actor' })
+const IM = { ...IP, message_id: 'integration-private-source' }
+call('send_message', 'integration-owner', { ...IM, content: 'private source' })
+for (const [send, field] of [['message_send', 'body'], ['send_message', 'content']]) {
+ for (const [actor, scope] of [
+  ['integration-bystander', IC], ['integration-bystander', IP],
+  ['unregistered-bot', IP], ['integration-actor', { workspace_id: 'w1', channel_id: IP.channel_id }],
+ ]) denied(send, actor, { ...scope, message_id: randomUUID(), [field]: 'unauthorized effect' })
+ const target = { ...IC, message_id: 'integration-attribution-' + send }
+ ok(call(send, 'integration-actor', { ...target, [field]: 'attributed effect' })[0] === 1, send + ' allows current channel member')
+ const audit = db.prepare('SELECT actor_id FROM audit_log WHERE workspace_id=? AND target_id=?').all(IW.workspace_id, target.message_id)
+ ok(audit.length === 1 && audit[0].actor_id === 'integration-actor', send + ' audits the authenticated actor exactly once')
+ denied(send, 'integration-actor', { ...target, [field]: 'duplicate effect' })
+}
+// Membership is required even for a public target discovered by the workspace.
+ok(call('get_messages', 'integration-bystander', IC).length === 0, 'public discovery does not authorize integration source reads')
+for (const [edit, field] of [['message_edit', 'body'], ['edit_message', 'content']])
+ denied(edit, 'integration-actor', { ...IM, [field]: 'impersonated edit' })
+ok(call('leave_channel', 'integration-actor', IP)[0] === 1, 'execution actor leaves private target')
+for (const [send, field] of [['message_send', 'body'], ['send_message', 'content']])
+ denied(send, 'integration-actor', { ...IP, message_id: randomUUID(), [field]: 'stale queued effect' })
+ok(call('get_messages', 'integration-actor', IP).length === 0, 'queued actor cannot reuse pre-leave read authority')
+call('workspace_member_remove', 'integration-owner', { ...IW, user_id: 'integration-actor' })
+for (const [send, field] of [['message_send', 'body'], ['send_message', 'content']])
+ denied(send, 'integration-actor', { ...IC, message_id: randomUUID(), [field]: 'removed actor effect' })
+ok(call('get_messages', 'integration-actor', IC).length === 0, 'workspace removal revokes automation prerequisite reads')
+ok(db.prepare('PRAGMA foreign_key_check').all().length === 0, 'E15 authorization regressions preserve foreign keys')
+
 console.log('Passed ' + checks + ' assertions across all '+Object.keys(TOOLS).length+' actions.')
