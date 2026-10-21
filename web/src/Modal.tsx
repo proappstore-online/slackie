@@ -1,3 +1,4 @@
+import { t } from './strings'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
@@ -11,11 +12,11 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
       dialog.close()
       // React StrictMode reopens the dialog once during development. Restore
       // focus only when it remains closed, using the original opener.
-      queueMicrotask(() => { if (!dialog.open && opener.current?.isConnected) opener.current.focus() })
+      queueMicrotask(() => { if (!dialog.open) { const target = opener.current?.isConnected ? opener.current : document.getElementById('channel-navigation') ?? document.querySelector<HTMLElement>('.workspace-controls select, #conversation'); target?.focus() } })
     }
   }, [])
   return <dialog ref={ref} aria-labelledby={id} onCancel={event => { event.preventDefault(); onClose() }}>
-    <header className="slackie-header"><h2 id={id}>{title}</h2><button onClick={onClose}>Close</button></header>
+    <header className="slackie-header"><h2 id={id} dir="auto">{title}</h2><button onClick={onClose}>{t("close")}</button></header>
     {children}
   </dialog>
 }

@@ -1,9 +1,23 @@
+import { t } from './strings'
+import { useNavigation } from './navigation'
+import { useExperience } from './ExperienceProvider'
+import { MessageAnnouncements } from './experience'
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
-import { accessLost, errorText, getThreadRoot, listThread, threadReply, type Channel, type Message, type Role } from './api'
+import { app, accessLost, errorText, getThreadRoot, listThread, threadReply, type Channel, type Message, type Role } from './api'
 import { submitOnEnter } from './composer'
 import { MessageCard } from './MessageCard'
 
 export function ThreadPanel({ channel, parentId, role, onClose, onChanged }: { channel: Channel; parentId: string; role: Role; onClose: () => void; onChanged: () => Promise<void> }) {
+  const { mobileView } = useNavigation()
+  const { preferences, announce, clearAnnouncements } = useExperience()
+  const observer = useRef(new MessageAnnouncements())
+  const baseline = useRef(true)
+  const visible = !window.matchMedia('(max-width: 639px)').matches || mobileView === 'thread'
+  const speech = useRef({ preferences, announce, clearAnnouncements, visible })
+  speech.current = { preferences, announce, clearAnnouncements, visible }
+  useEffect(() => { baseline.current = true; speech.current.clearAnnouncements() }, [preferences.announceMessages, visible])
+  useEffect(() => { const hide = () => { baseline.current = true }; document.addEventListener('visibilitychange', hide); return () => document.removeEventListener('visibilitychange', hide) }, [])
+  useEffect(() => () => { observer.current.reset(); speech.current.clearAnnouncements() }, [])
   const [root, setRoot] = useState<Message | null>(null)
   const [replies, setReplies] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
@@ -18,8 +32,6 @@ export function ThreadPanel({ channel, parentId, role, onClose, onChanged }: { c
   const endRef = useRef<HTMLDivElement>(null)
   const labelId = useId()
   const params = { workspace_id: channel.workspace_id, channel_id: channel.id, parent_id: parentId }
-  const newest = replies[0]?.id
-  useEffect(() => { if (newest) endRef.current?.scrollIntoView({ block: 'nearest' }) }, [newest])
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
     titleRef.current?.focus()
@@ -34,7 +46,7 @@ export function ThreadPanel({ channel, parentId, role, onClose, onChanged }: { c
         try {
           const context = await getThreadRoot(params)
           if (!active) return
-          if (!context) { setRoot(null); setReplies([]); setDraft(''); pending.current = null; setError('This thread is unavailable or access has changed.'); return }
+          if (!context) { baseline.current = true; observer.current.reset(); speech.current.clearAnnouncements(); setRoot(null); setReplies([]); setDraft(''); pending.current = null; setError(t("thisThreadIsUnavailableOrAccessHasChanged")); return }
           let rows: Message[] = []; let more = false
           for (let page = 0; page < pages; page++) {
             const next = await listThread({ ...params, ...(rows.length ? { before_id: rows.at(-1)!.id } : {}) })
@@ -42,8 +54,8 @@ export function ThreadPanel({ channel, parentId, role, onClose, onChanged }: { c
             if (!active) return
             if (!more) break
           }
-          if (active) { setRoot(context); setReplies(rows); setHasMore(more); setError('') }
-        } catch (err) { if (active) { if (accessLost(err)) { setRoot(null); setReplies([]); setDraft(''); pending.current = null }; setError(errorText(err)) } }
+          if (active) { setRoot(context); setReplies(rows); setHasMore(more); setError(''); observer.current.observe(rows, app.auth.user?.id ?? '', speech.current.preferences.announceMessages, baseline.current || document.hidden || !speech.current.visible); baseline.current = false; speech.current.announce(observer.current.flush()) }
+        } catch (err) { if (active) { baseline.current = true; speech.current.clearAnnouncements(); if (accessLost(err)) { setRoot(null); setReplies([]); setDraft(''); pending.current = null }; setError(errorText(err)) } }
         finally { if (active) setLoading(false) }
       })()
       try { await request } finally { request = null }
@@ -65,24 +77,24 @@ export function ThreadPanel({ channel, parentId, role, onClose, onChanged }: { c
     try {
       await threadReply({ ...params, message_id: pending.current.id, content: pending.current.content })
       const rows = await listThread(params)
-      if (!rows.some(row => row.id === pending.current?.id)) throw new Error('Reply not confirmed. Your draft is preserved; retry.')
-      setDraft(''); pending.current = null; await changed()
-    } catch (err) { setError(errorText(err)) } finally { setBusy(false) }
+      if (!rows.some(row => row.id === pending.current?.id)) throw new Error(t("replyNotConfirmedYourDraftIsPreservedRetry"))
+      setDraft(''); pending.current = null; await changed(); endRef.current?.scrollIntoView({ block: 'nearest' })
+    } catch (err) { if (accessLost(err)) { setRoot(null); setReplies([]); setDraft(''); pending.current = null; observer.current.reset(); speech.current.clearAnnouncements() }; setError(errorText(err)) } finally { setBusy(false) }
   }
   return <section aria-labelledby={labelId} className="thread-panel">
-    <header className="slackie-header"><h3 id={labelId} ref={titleRef} tabIndex={-1}>Thread</h3><button onClick={onClose}>Close thread</button></header>
-    {loading && <p role="status">Loading thread…</p>}{error && <p role="alert">{error}</p>}
+    <header className="slackie-header"><h3 id={labelId} ref={titleRef} tabIndex={-1}>{t("threadText")}</h3><button onClick={onClose}>{t("closeThread")}</button></header>
+    {loading && <p role="status">{t("loadingThread")}</p>}{error && <p role="alert">{error}</p>}
     {root && <>
-      <p><strong>{root.display_name || 'Former member'}</strong></p>
-      <p className="message-body">{root.deleted_at !== null ? 'Parent message deleted' : root.body}</p>
-      {hasMore && <button disabled={busy} onClick={() => setPages(current => current + 1)}>Load older replies</button>}
-      <div className="message-scroll"><ol aria-label="Thread replies" className="message-list">{[...replies].reverse().map(reply =>
+      <p><strong dir="auto">{root.display_name || t("formerMember")}</strong></p>
+      <p className="message-body" lang="" dir="auto">{root.deleted_at !== null ? t("parentMessageDeleted") : root.body}</p>
+      {hasMore && <button disabled={busy} onClick={() => setPages(current => current + 1)}>{t("loadOlderReplies")}</button>}
+      <div className="message-scroll"><ol aria-label={t("threadReplies")} className="message-list">{[...replies].reverse().map(reply =>
         <MessageCard key={reply.id} message={reply} params={{ workspace_id: channel.workspace_id, channel_id: channel.id, message_id: reply.id }}
           role={role} archived={!!channel.is_archived} onChanged={changed} />
-      )}</ol>{!replies.length && <p>No replies yet.</p>}<div ref={endRef} /></div>
-      <form onSubmit={submit} className="slackie-form"><label>Reply
-        <textarea required maxLength={10000} value={draft} disabled={busy || !!channel.is_archived || root.deleted_at !== null}
-          onChange={event => setDraft(event.target.value)} onKeyDown={submitOnEnter} /></label><button disabled={busy || !!channel.is_archived || root.deleted_at !== null || !draft.trim()}>Send reply</button>
+      )}</ol>{!replies.length && <p>{t("noRepliesYet")}</p>}<div ref={endRef} /></div>
+      <form onSubmit={submit} className="slackie-form"><label>{t("reply")}<textarea dir="auto" lang="" required maxLength={10000} value={draft} readOnly={busy} disabled={!!channel.is_archived || root.deleted_at !== null}
+          onChange={event => setDraft(event.target.value)} onKeyDown={event => submitOnEnter(event, preferences.sendOnEnter)} /></label><button disabled={busy || !!channel.is_archived || root.deleted_at !== null || !draft.trim()}>{busy ? t("sending") : t("sendReply")}</button>
+        {error && draft && <button type="button" onClick={() => { if (!navigator.clipboard) setError(t('copyUnavailable')); else void navigator.clipboard.writeText(draft).catch(() => setError(t('copyUnavailable'))) }}>{t("copyDraft")}</button>}
       </form>
     </>}
   </section>

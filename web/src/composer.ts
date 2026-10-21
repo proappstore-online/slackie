@@ -1,8 +1,8 @@
-﻿import type { KeyboardEvent } from 'react'
+import type { KeyboardEvent } from 'react'
+import { shouldSubmit } from './experience'
 
-// Shared by channel and thread composers; composing IME text must never send.
-export function submitOnEnter(event: KeyboardEvent<HTMLTextAreaElement>) {
-  if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+export function submitOnEnter(event: KeyboardEvent<HTMLTextAreaElement>, sendOnEnter = true) {
+  if (shouldSubmit(event.key, event.shiftKey, event.nativeEvent.isComposing, event.ctrlKey, event.metaKey, sendOnEnter)) {
     event.preventDefault()
     event.currentTarget.form?.requestSubmit()
   }

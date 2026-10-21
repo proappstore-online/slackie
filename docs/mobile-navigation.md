@@ -40,3 +40,15 @@ to the production origin and pnpm test:browser --grep "skip link|mobile". These
 checks mock PAS responses and never write production records. Leave the variable
 unset for the local full suite. The screenshot at 375x480 also checks that the
 send button remains in view after viewport shrink.
+
+## E14 link restoration update (2026-10-21)
+
+The previous reload/deep-link limitation is superseded by query parameters
+`workspace`, `channel` and optional `thread`. URLs carry identifiers only; workspace
+and channel lists and scoped thread-root reads reauthorize before content appears.
+Unknown/revoked identifiers show generic unavailable states. Native browser back
+restores selection through those reads. No message bodies, names or drafts enter
+the URL or persistent storage. Mobile tab/back view changes preserve mounted
+private drafts; channel/workspace changes and confirmed revocation discard them.
+DOM regressions cover restoration, denied identifiers, browser back and polling
+while on the channel-list tab. Real phone/zoom review remains outstanding.

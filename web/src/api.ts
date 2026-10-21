@@ -1,3 +1,5 @@
+import { recoveryKind } from './recovery'
+import { t } from './strings'
 import { ActionError, initPro } from '@proappstore/sdk'
 export const app = initPro({ appId: 'slackie', authMode: 'platform-cookie' })
 export const CHANNEL_TYPES = ['public', 'private'] as const
@@ -21,7 +23,13 @@ export async function batch(name: string, params: Record<string, unknown>): Prom
   const result = await app.actions.call<{ results: { meta: { changes: number } }[] }>(name, params)
   return result.results.map(row => row.meta.changes)
 }
-export const errorText = (error: unknown) => error instanceof Error ? error.message : 'Request failed. Please retry.'
+export const errorText = (error: unknown) => {
+  if (error instanceof ActionError) {
+    const kind = recoveryKind(error.status, navigator.onLine)
+    return t(({ offline: 'recoveryOffline', denied: 'recoveryDenied', rateLimited: 'recoveryRateLimited', unavailable: 'recoveryUnavailable', expiredInvite: 'recoveryExpiredInvite', unknown: 'recoveryUnknown' } as const)[kind])
+  }
+  return error instanceof Error ? error.message : t('recoveryUnknown')
+}
 // The SDK clears auth on 401. Only an explicit access refusal should discard
 // private component state; network errors and service failures are retryable.
 export const accessLost = (error: unknown) => error instanceof ActionError && (error.status === 401 || error.status === 403)

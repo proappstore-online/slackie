@@ -61,3 +61,19 @@ bounded announcement, recovery-state and localization decisions plus a test/revi
 matrix for #26–#28. These are proposals awaiting review; no additional task is
 marked complete. Existing mobile decisions are in [mobile-navigation.md](../mobile-navigation.md).
 The modal containment regression is automated coverage, not NVDA/VoiceOver evidence.
+
+## Authorized implementation delivery (2026-10-21)
+
+The follow-up user instruction requested actual implementation and closure after
+non-browser validation, explicitly allowing Chromium tests to be skipped on this
+host. The implementation now includes typed string externalization, locale/zone
+and composer preferences, bounded opt-in message announcements, authorized URL
+restoration, mobile recovery visibility and focus/draft recovery improvements.
+See the [implementation record](../design/inclusive-experience.md#implementation-and-review-record-2026-10-21)
+for behavior, executable test coverage and remaining manual review limitations.
+
+The checkboxes above remain acceptance tracking: manual NVDA/VoiceOver, real
+Windows contrast themes and real-device zoom/reflow have not been performed.
+Closing the implementation issue at the user's request does not establish WCAG
+conformance or complete the separate evidence in #24–#28. No new PAS resources,
+future navigation capabilities or build-ready child issues were created.

@@ -1,3 +1,6 @@
+import { useExperience } from './ExperienceProvider'
+import { formatCount, selectAuthorizedId } from './experience'
+import { t, message } from './strings'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createChannel, accessLost, errorText, getChannels, getMentionCount, type Channel, type Workspace } from './api'
 import { Conversation } from './Conversation'
@@ -5,9 +8,11 @@ import { Members } from './Members'
 import { Modal } from './Modal'
 import { Mentions } from './Mentions'
 import { Settings } from './Settings'
-import { useNavigation } from './navigation'
+import { useNavigation, useConversationSearch, openConversationLink } from './navigation'
 
 export function ChannelShell({ workspace, onWorkspaceChanged }: { workspace: Workspace; onWorkspaceChanged: () => Promise<void> }) {
+  const { preferences } = useExperience()
+  const link = useConversationSearch()
   const { setMobileView, setContext } = useNavigation()
   useEffect(() => {
     const showConversation = () => setView('channels')
@@ -15,10 +20,11 @@ export function ChannelShell({ workspace, onWorkspaceChanged }: { workspace: Wor
     return () => window.removeEventListener('slackie:navigate', showConversation)
   }, [])
   const [channels, setChannels] = useState<Channel[]>([])
-  const [selected, setSelected] = useState('')
+  const [selected, setSelected] = useState(link?.workspace === workspace.id ? link.channel ?? '' : '')
   const [view, setView] = useState<'channels' | 'members' | 'mentions' | 'settings'>('channels')
   const [mentionCount, setMentionCount] = useState(0)
-  const [requestedThread, setRequestedThread] = useState<string | null>(null)
+  const [requestedThread, setRequestedThread] = useState<string | null>(link?.workspace === workspace.id ? link.thread ?? null : null)
+  useEffect(() => { if (link?.channel) { setView('channels'); setMobileView(link.thread ? 'thread' : 'conversation') } }, [link?.workspace, link?.channel, link?.thread, setMobileView])
   const [creating, setCreating] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -48,7 +54,8 @@ export function ChannelShell({ workspace, onWorkspaceChanged }: { workspace: Wor
         if (active) {
           setChannels(rows)
           setError('')
-          setSelected(current => rows.some(row => row.id === current) ? current : rows[0]?.id ?? '')
+          setSelected(current => selectAuthorizedId(rows, current, link?.workspace === workspace.id ? link.channel : undefined))
+          setRequestedThread(link?.workspace === workspace.id ? link.thread ?? null : null)
         }
       } catch (err) { if (active) { if (accessLost(err)) { setChannels([]); setSelected(''); setRequestedThread(null) }; setError(errorText(err)) } }
       finally { pending = false; if (active) setLoading(false) }
@@ -57,35 +64,35 @@ export function ChannelShell({ workspace, onWorkspaceChanged }: { workspace: Wor
     const timer = window.setInterval(() => void load(), 10000)
     window.addEventListener('focus', load)
     return () => { active = false; clearInterval(timer); window.removeEventListener('focus', load) }
-  }, [workspace.id])
+  }, [workspace.id, link?.channel, link?.thread, setMobileView])
   async function refresh() { setChannels(await getChannels(workspace.id)) }
   const channel = channels.find(row => row.id === selected)
   useEffect(() => { setContext(current => ({ ...current, channel: channel?.name ?? '' })) }, [channel?.name, setContext])
-  return <div className="conversation-layout"><aside aria-label="Workspace navigation">
-    <button onClick={() => { setView('members'); setMobileView('conversation') }} aria-current={view === 'members' ? 'page' : undefined}>Members</button>
-    <button onClick={() => { setView('mentions'); setMobileView('conversation') }} aria-current={view === 'mentions' ? 'page' : undefined}>Mentions ({mentionCount} unread)</button>
-    {workspace.role !== 'member' && <button onClick={() => { setView('settings'); setMobileView('conversation') }} aria-current={view === 'settings' ? 'page' : undefined}>Settings</button>}
-    <h2>Channels</h2>{loading && <p role="status">Loading channels…</p>}
-    <nav aria-label="Channels"><ul>{channels.map(row => <li key={row.id}><button
+  return <div className="conversation-layout"><aside aria-label={t("workspaceNavigation")}>
+    <button onClick={() => { setView('members'); setMobileView('conversation') }} aria-current={view === 'members' ? 'page' : undefined}>{t("members")}</button>
+    <button onClick={() => { setView('mentions'); setMobileView('conversation') }} aria-current={view === 'mentions' ? 'page' : undefined}>{message('mentionsUnread', { count: formatCount(mentionCount, preferences) })}</button>
+    {workspace.role !== 'member' && <button onClick={() => { setView('settings'); setMobileView('conversation') }} aria-current={view === 'settings' ? 'page' : undefined}>{t("settings")}</button>}
+    <h2 id="channel-navigation" tabIndex={-1}>{t("channels")}</h2>{loading && <p role="status">{t("loadingChannels")}</p>}
+    <nav aria-label={t("channels")}><ul>{channels.map(row => <li key={row.id}><button
       aria-current={view === 'channels' && row.id === selected ? 'page' : undefined}
-      onClick={() => { setSelected(row.id); setRequestedThread(null); setView('channels'); setMobileView('conversation') }}>
-      {row.is_private ? 'Private: ' : '# '}{row.name}{row.is_archived ? ' (archived)' : ''}
+      onClick={() => { setSelected(row.id); openConversationLink({ workspace: workspace.id, channel: row.id }); setRequestedThread(null); setView('channels'); setMobileView('conversation') }}>
+      {row.is_private ? t("private") : '# '}<bdi>{row.name}</bdi>{row.is_archived ? t("archived") : ''}
     </button></li>)}</ul></nav>
-    {!loading && !channels.length && <p>No channels available.</p>}
-    {workspace.role !== 'member' && <button onClick={() => setCreating(true)}>+ New Channel</button>}
+    {!loading && !channels.length && <p>{t("noChannelsAvailable")}</p>}
+    {workspace.role !== 'member' && <button onClick={() => setCreating(true)}>{t("newChannel")}</button>}
     {error && <p role="alert">{error}</p>}
   </aside>
     {view === 'members' ? <Members key={workspace.id} workspace={workspace} />
       : view === 'mentions' ? <Mentions workspaceId={workspace.id} onOpen={mention => {
-        void refresh().then(() => { setSelected(mention.channel_id); setRequestedThread(mention.root_id); setView('channels'); setMobileView('conversation') }).catch(err => setError(errorText(err)))
+        void refresh().then(() => { setSelected(mention.channel_id); openConversationLink({ workspace: workspace.id, channel: mention.channel_id, thread: mention.root_id }); setRequestedThread(mention.root_id); setView('channels'); setMobileView('conversation') }).catch(err => setError(errorText(err)))
       }} />
       : view === 'settings' ? <Settings workspace={workspace} onChanged={onWorkspaceChanged} />
       : channel ? <Conversation key={`${channel.id}:${channel.is_member}`} channel={channel} role={workspace.role} onChannelsChange={refresh} requestedThread={requestedThread} />
-      : <main id="conversation">{loading ? <p role="status">Loading your workspace…</p> : workspace.role !== 'member'
-        ? <><h2>Create your first channel</h2><p>Start with #general, a shared place to introduce your team.</p><button onClick={() => setCreating(true)}>Create your first channel</button></>
-        : <p>Ask an owner or admin to create your first channel.</p>}</main>}
+      : <main id="conversation" tabIndex={-1}>{link?.channel && !loading ? <p>{t("conversationUnavailableSelectAnAvailableChannel")}</p> : loading ? <p role="status">{t("loadingYourWorkspace")}</p> : workspace.role !== 'member'
+        ? <><h2>{t("createYourFirstChannel")}</h2><p>{t("startWithGeneralASharedPlaceToIntroduceYour")}</p><button onClick={() => setCreating(true)}>{t("createYourFirstChannel")}</button></>
+        : <p>{t("askAnOwnerOrAdminToCreateYourFirst")}</p>}</main>}
     {creating && <CreateChannel workspace={workspace} firstChannel={!channels.length} onClose={() => setCreating(false)} onCreated={async id => {
-      await refresh(); setSelected(id); setView('channels'); setMobileView('conversation'); setCreating(false)
+      await refresh(); setSelected(id); openConversationLink({ workspace: workspace.id, channel: id }); setView('channels'); setMobileView('conversation'); setCreating(false)
     }} />}
   </div>
 }
@@ -102,14 +109,14 @@ function CreateChannel({ workspace, firstChannel, onClose, onCreated }: { worksp
     try {
       await createChannel({ workspace_id: workspace.id, channel_id: id.current, name: name.trim(), description, is_private: Number(isPrivate) })
       const rows = await getChannels(workspace.id)
-      if (!rows.some(row => row.id === id.current)) throw new Error('Channel creation refused. Check its name and your role.')
+      if (!rows.some(row => row.id === id.current)) throw new Error(t("channelCreationRefusedCheckItsNameAndYourRole"))
       await onCreated(id.current)
     } catch (err) { setError(errorText(err)) } finally { setBusy(false) }
   }
-  return <Modal title="New channel" onClose={onClose}><form onSubmit={submit} className="slackie-form">
-    <label>Name <input required maxLength={80} value={name} onChange={event => setName(event.target.value)} /></label>
-    <label>Description <textarea maxLength={1000} value={description} onChange={event => setDescription(event.target.value)} /></label>
-    <label><input type="checkbox" checked={isPrivate} onChange={event => setIsPrivate(event.target.checked)} /> Private channel</label>
-    {error && <p role="alert">{error}</p>}<button disabled={busy}>Create channel</button>
+  return <Modal title={t("newChannelText")} onClose={onClose}><form onSubmit={submit} className="slackie-form">
+    <label>{t("name")}<input required maxLength={80} value={name} onChange={event => setName(event.target.value)} /></label>
+    <label>{t("description")}<textarea dir="auto" lang="" maxLength={1000} value={description} onChange={event => setDescription(event.target.value)} /></label>
+    <label><input type="checkbox" checked={isPrivate} onChange={event => setIsPrivate(event.target.checked)} />{t("privateChannel")}</label>
+    {error && <p role="alert">{error}</p>}<button disabled={busy}>{t("createChannel")}</button>
   </form></Modal>
 }

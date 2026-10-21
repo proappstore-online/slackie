@@ -1,7 +1,11 @@
+import { t } from './strings'
+import { useExperience } from './ExperienceProvider'
+import { formatTimestamp } from './experience'
 import { useEffect, useState } from 'react'
 import { acknowledgeMention, errorText, listMentions, notifyChanges, type Mention } from './api'
 
 export function Mentions({ workspaceId, onOpen }: { workspaceId: string; onOpen: (mention: Mention) => void }) {
+  const { preferences } = useExperience()
   const [mentions, setMentions] = useState<Mention[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -38,14 +42,14 @@ export function Mentions({ workspaceId, onOpen }: { workspaceId: string; onOpen:
       notifyChanges(); onOpen(mention)
     } catch (err) { setError(errorText(err)) } finally { setBusy(false) }
   }
-  return <main id="conversation"><h2>Mentions</h2>
-    <p>Mentions are visible only while you can access their channels. Marking one seen does not change channel read state.</p>
-    {loading && <p role="status">Loading mentions…</p>}{error && <p role="alert">{error}</p>}
-    {!loading && !mentions.length && <p>No mentions yet. Set your @handle in Members so teammates can mention you.</p>}
+  return <main id="conversation"><h2>{t("mentionsText")}</h2>
+    <p>{t("mentionsAreVisibleOnlyWhileYouCanAccessTheir")}</p>
+    {loading && <p role="status">{t("loadingMentions")}</p>}{error && <p role="alert">{error}</p>}
+    {!loading && !mentions.length && <p>{t("noMentionsYetSetYourHandleInMembersSo")}</p>}
     <ul className="message-list">{mentions.map(mention => <li key={mention.message_id}>
-      <h3>#{mention.channel_name}{mention.seen_at === null ? ' · New' : ''}</h3>
-      <p className="message-body">{mention.body}</p><time dateTime={new Date(mention.created_at).toISOString()}>{new Date(mention.created_at).toLocaleString()}</time>{' '}
-      <button disabled={busy} onClick={() => void open(mention)}>Open mentioned message</button>
-    </li>)}</ul>{hasMore && <button disabled={loading || busy} onClick={() => setPages(current => current + 1)}>Load older mentions</button>}
+      <h3>{"#"}{mention.channel_name}{mention.seen_at === null ? t("new") : ''}</h3>
+      <p className="message-body" lang="" dir="auto">{mention.body}</p><time lang={preferences.locale} dateTime={new Date(mention.created_at).toISOString()}>{formatTimestamp(mention.created_at, preferences)}</time>{' '}
+      <button disabled={busy} onClick={() => void open(mention)}>{t("openMentionedMessage")}</button>
+    </li>)}</ul>{hasMore && <button disabled={loading || busy} onClick={() => setPages(current => current + 1)}>{t("loadOlderMentions")}</button>}
   </main>
 }
