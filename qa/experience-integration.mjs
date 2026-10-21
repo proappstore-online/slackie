@@ -246,3 +246,57 @@ test('announcements are off by default and opting out clears a queued summary', 
     assert.equal(document.querySelector('.sr-only').textContent, '')
   } finally { await cleanup() }
 })
+
+test('workspace creation validates while typing, blocks submission and creates a valid workspace', async () => {
+  try {
+    const rows = []
+    calls = []
+    sdk.actions.call = async (name, params) => {
+      calls.push({ name, params })
+      if (name === 'workspace_list') return { rows: [...rows] }
+      if (name === 'workspace_create') {
+        rows.push({ id: params.workspace_id, name: params.name, slug: params.slug, role: 'owner' })
+        return { results: [{ meta: { changes: 1 } }] }
+      }
+      return { rows: [] }
+    }
+    await mount()
+    const form = document.querySelector('.workspace-controls form')
+    const [name, slug] = form.querySelectorAll('input')
+    const submit = form.querySelector('button')
+    await input(slug, 'valid-team')
+    assert.equal(name.getAttribute('autocapitalize'), 'none')
+    for (const invalid of ['Uppercase', 'has spaces', ' leading', 'trailing ', 'tab\tname', 'nonbreaking\u00a0space', 'bad.name']) {
+      await input(name, invalid)
+      assert.equal(name.getAttribute('aria-invalid'), 'true')
+      assert.match(document.getElementById('workspace-name-help').textContent, /lowercase with no spaces/)
+      assert.equal(submit.disabled, true)
+      // Also bypass native validation to exercise the submit handler's guard.
+      await act(async () => form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })))
+      assert.equal(calls.filter(call => call.name === 'workspace_create').length, 0)
+    }
+    await input(name, 'valid-team')
+    assert.equal(name.getAttribute('aria-invalid'), 'false')
+    assert.equal(submit.disabled, false)
+    await click(submit)
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].name, 'valid-team')
+    assert.match(document.querySelector('.workspace-controls select').textContent, /valid-team/)
+  } finally { await cleanup() }
+})
+
+test('workspace form displays explicit server validation errors and retains entered values', async () => {
+  try {
+    sdk.actions.call = async name => name === 'workspace_create'
+      ? { results: [{ meta: { changes: 0 }, rows: [{ error: 'Workspace name must be lowercase with no spaces. Use 1 to 100 lowercase letters, numbers, underscores or hyphens.' }] }] }
+      : { rows: [] }
+    await mount()
+    const form = document.querySelector('.workspace-controls form')
+    const [name, slug] = form.querySelectorAll('input')
+    await input(name, 'my-team'); await input(slug, 'my-team')
+    await click(form.querySelector('button'))
+    assert.match(document.querySelector('[role="alert"]').textContent, /Use 1 to 100 lowercase letters/)
+    assert.equal(name.value, 'my-team')
+    assert.equal(slug.value, 'my-team')
+  } finally { await cleanup() }
+})

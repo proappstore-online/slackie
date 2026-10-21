@@ -117,6 +117,6 @@ function CreateChannel({ workspace, firstChannel, onClose, onCreated }: { worksp
     <label>{t("name")}<input required maxLength={80} value={name} onChange={event => setName(event.target.value)} /></label>
     <label>{t("description")}<textarea dir="auto" lang="" maxLength={1000} value={description} onChange={event => setDescription(event.target.value)} /></label>
     <label><input type="checkbox" checked={isPrivate} onChange={event => setIsPrivate(event.target.checked)} />{t("privateChannel")}</label>
-    {error && <p role="alert">{error}</p>}<button disabled={busy}>{t("createChannel")}</button>
+    {error && <p role="alert">{error}</p>}<button aria-label={t("createChannel")} disabled={busy}>{t("createChannel")}</button>
   </form></Modal>
 }

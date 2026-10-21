@@ -58,7 +58,7 @@ export function Members({ workspace }: { workspace: Workspace }) {
     {!loading && <form className="slackie-form" onSubmit={saveProfile}><label>{t("yourDisplayName")}<input required maxLength={80} value={name} onChange={event => setName(event.target.value)} /></label>
       <label>{t("mentionHandle")}<input maxLength={32} pattern="[a-z0-9_-]{1,32}" value={handle} onChange={event => setHandle(event.target.value)} aria-describedby="handle-help" /></label>
       <small id="handle-help">{t("optionalUniqueLowercaseHandleUidIsReservedLeaveBlank")}</small>
-      <button disabled={busy || !name.trim()}>{t("saveProfile")}</button></form>}
+      <button aria-label={t("saveProfile")} disabled={busy || !name.trim()}>{t("saveProfile")}</button></form>}
     {profile && <ProfileModal profile={profile} onClose={() => setProfile(null)} />}
   </main>
 }

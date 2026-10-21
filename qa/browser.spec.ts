@@ -55,7 +55,7 @@ async function fixture(page: Page, roomOpen = false, options: { emptyChannels?: 
   })
   await page.route('**/*', async route => {
     const url = new URL(route.request().url())
-    if (url.origin !== new URL(process.env.SLACKIE_BASE_URL || 'http://127.0.0.1:4175').origin) return route.abort()
+    if (url.origin !== new URL(process.env.SLACKIE_BASE_URL || process.env.E2E_BASE_URL || 'http://127.0.0.1:4175').origin) return route.abort()
     if (!url.pathname.startsWith('/.pas/')) return route.continue()
     if (url.pathname === '/.pas/auth/me') return route.fulfill({ json: { id: 'me', login: 'ada', name: 'Ada' } })
     if (!url.pathname.includes('/actions/')) return route.fulfill({ json: {} })
@@ -492,6 +492,22 @@ test('workspace creation explains a server refusal', async ({ page }) => {
   await page.getByLabel('Slug', { exact: true }).fill('my-workspace')
   await page.getByRole('button', { name: 'Create workspace', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('Workspace name must be lowercase with no spaces')
+  await expect(page.getByLabel('Name', { exact: true })).toHaveValue('my-workspace')
+})
+
+test('workspace creation displays the server validation response', async ({ page }) => {
+  await fixture(page, false, { noWorkspace: true, emptyChannels: true })
+  await page.route('**/actions/workspace_create', route => route.fulfill({
+    json: { results: [
+      ...Array.from({ length: 5 }, () => ({ meta: { changes: 0 } })),
+      { meta: { changes: 0 }, rows: [{ error: 'Workspace name must be lowercase with no spaces. Use 1 to 100 lowercase letters, numbers, underscores or hyphens.' }] },
+    ] },
+  }))
+  await page.getByText('Create a workspace', { exact: true }).click()
+  await page.getByLabel('Name', { exact: true }).fill('my-workspace')
+  await page.getByLabel('Slug', { exact: true }).fill('my-workspace')
+  await page.getByRole('button', { name: 'Create workspace', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Use 1 to 100 lowercase letters')
   await expect(page.getByLabel('Name', { exact: true })).toHaveValue('my-workspace')
 })
 

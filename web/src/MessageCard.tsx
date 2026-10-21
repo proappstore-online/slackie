@@ -23,7 +23,7 @@ export function MessageCard({ message, params, role, archived, onChanged, onThre
     <time lang={preferences.locale} dateTime={new Date(message.created_at).toISOString()} title={formatTimestamp(message.created_at, preferences)}>{formatTimestamp(message.created_at, preferences)}</time>
     {editing ? <form className="slackie-form" onSubmit={event => { event.preventDefault(); if (busy) return; if (text === message.body) setEditing(false); else void action(() => editMessage({ ...params, content: text })) }}>
       <label>{t("editMessage")}<textarea dir="auto" lang="" required maxLength={10000} disabled={busy} value={text} onChange={event => setText(event.target.value)} /></label>
-      <button disabled={busy || !text.trim()}>{t("saveMessage")}</button><button type="button" disabled={busy} onClick={() => setEditing(false)}>{t("cancelEdit")}</button>
+      <button aria-label={t("saveMessage")} disabled={busy || !text.trim()}>{t("saveMessage")}</button><button type="button" disabled={busy} onClick={() => setEditing(false)}>{t("cancelEdit")}</button>
     </form> : <p className="message-body" lang="" dir="auto">{message.body}</p>}
     {message.edited_at !== null && <small>{t("edited")}</small>}
     {onThread && message.parent_id === null && <button onClick={onThread}>{translatedMessage('replyInThreadCount', { count: formatCount(message.reply_count, preferences) })}</button>}

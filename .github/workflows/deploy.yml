@@ -15,4 +15,6 @@ concurrency:
 jobs:
   deploy:
     uses: proappstore-online/platform/.github/workflows/app-deploy.yml@app-deploy-v1
+    with:
+      e2e: web
     secrets: inherit

@@ -476,17 +476,21 @@ ok(db.prepare('SELECT count(*) AS n FROM audit_log a LEFT JOIN activity_log l ON
 ok(db.prepare("SELECT count(*) AS n FROM activity_log WHERE changes != '{}'").get().n === 0, 'all operation markers finalized')
 
 
-for (const name of ['Uppercase', 'has spaces', ' leading', 'trailing ', 'tab\tname', 'line\nname', 'nonbreaking\u00a0space', '?quipe', 'bad.name', '', 'a'.repeat(101)]) {
+for (const name of ['Uppercase', 'has spaces', ' leading', 'trailing ', 'tab\tname', 'line\nname', 'nonbreaking\u00a0space', '?quipe', 'bad.name', 'valid\0Uppercase', 'valid\0', '', 'a'.repeat(101)]) {
  const workspace_id = randomUUID()
  denied('workspace_create', 'validation-owner', { workspace_id, name, slug: workspace_id })
+ const [errorSql, errorValues] = bind(TOOLS.workspace_create.statements.at(-1), { name }, 'validation-owner', ++clock)
+ ok(db.prepare(errorSql).get(...errorValues)?.error.includes('Workspace name must be lowercase with no spaces'), 'server returns explicit name validation error')
  ok(db.prepare('SELECT count(*) AS n FROM workspaces WHERE id = ?').get(workspace_id).n === 0, 'invalid name creates no workspace')
  ok(db.prepare('SELECT count(*) AS n FROM workspace_members WHERE workspace_id = ?').get(workspace_id).n === 0, 'invalid name creates no membership')
 }
 
-for (const name of ['my-workspace', 'team_123']) {
+for (const name of ['my-workspace', 'team_123', 'a'.repeat(100)]) {
  const workspace_id = randomUUID()
  ok(call('workspace_create', 'validation-owner', { workspace_id, name, slug: workspace_id })[0] === 1, 'valid lowercase name creates workspace')
  ok(call('workspace_get', 'validation-owner', { workspace_id })[0].name === name, 'valid workspace is readable by its owner')
+ const [errorSql, errorValues] = bind(TOOLS.workspace_create.statements.at(-1), { name }, 'validation-owner', ++clock)
+ ok(db.prepare(errorSql).all(...errorValues).length === 0, 'valid name has no server validation error')
 }
 
 // E17 prerequisite: every content surface keeps live workspace AND channel

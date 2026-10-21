@@ -59,12 +59,12 @@ export function ChannelDetails({ channel, role, onChanged }: { channel: Channel;
         <label>{t("name")}<input required maxLength={80} value={name} onChange={event => setName(event.target.value)} /></label>
         <label>{t("topic")}<input maxLength={250} value={topic} onChange={event => setTopic(event.target.value)} /></label>
         <label>{t("description")}<textarea dir="auto" lang="" maxLength={1000} value={description} onChange={event => setDescription(event.target.value)} /></label>
-        <button disabled={busy}>{t("saveChannel")}</button>
+        <button aria-label={t("saveChannel")} disabled={busy}>{t("saveChannel")}</button>
       </form> : <><ul>{members.map(member => <li key={member.user_id}><bdi>{member.display_name}</bdi> · {t(member.role)}</li>)}</ul>
         {!channel.is_archived && (channel.is_member || mayManage) && <form onSubmit={invite} className="slackie-form">
           <label>{t("inviteWorkspaceMember")}<select required value={invitee} onChange={event => setInvitee(event.target.value)}>
             <option value="">{t("chooseAMember")}</option>{workspaceMembers.filter(row => !members.some(member => member.user_id === row.user_id)).map(row => <option key={row.user_id} value={row.user_id}>{row.display_name}</option>)}
-          </select></label><button disabled={busy || !invitee}>{t("inviteToChannel")}</button>
+          </select></label><button aria-label={t("inviteToChannel")} disabled={busy || !invitee}>{t("inviteToChannel")}</button>
         </form>}
       </>}
     </Modal>}

@@ -63,7 +63,7 @@ export function ExperienceSettings() {
       <small id="locale-help">{t("useALanguageTagSuchAsEnAUFr")}</small>
       <label>{t("timeZone")}<input value={zone} aria-invalid={!zoneValid} aria-describedby="zone-help" onChange={event => { setZone(event.target.value); setSaved(false) }} /></label>
       <small id="zone-help">{t("useAnIANATimeZoneSuchAsAustraliaMelbourne")}</small>
-      <button disabled={!localeValid || !zoneValid}>{t("saveFormattingPreferences")}</button>
+      <button aria-label={t("saveFormattingPreferences")} disabled={!localeValid || !zoneValid}>{t("saveFormattingPreferences")}</button>
       {saved && <p role="status">{t("formattingPreferencesSaved")}</p>}
     </form>
     <label><input type="checkbox" checked={preferences.sendOnEnter} onChange={event => update({ ...preferences, sendOnEnter: event.target.checked })} />{t("enterSendsMessages")}</label>

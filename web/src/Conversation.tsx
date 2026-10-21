@@ -140,7 +140,7 @@ export function Conversation({ channel, role, onChannelsChange, requestedThread 
       <form onSubmit={send} className="slackie-form"><label>{t("message")}<textarea dir="auto" lang="" required maxLength={10000} value={draft} readOnly={busy} disabled={!!channel.is_archived} aria-describedby="send-help"
           onChange={event => setDraft(event.target.value)} onKeyDown={event => submitOnEnter(event, preferences.sendOnEnter)} /></label>
         <small id="send-help">{preferences.sendOnEnter ? t("enterSendsShiftEnterAddsALine") : t("enterAddsALine")} {t("ctrlEnterOrCommandEnterSendsUseHandlesFrom")}</small>
-        <button disabled={busy || loading || !!channel.is_archived || !draft.trim()}>{busy ? t("sending") : t("sendMessage")}</button>
+        <button aria-label={t("sendMessage")} disabled={busy || loading || !!channel.is_archived || !draft.trim()}>{busy ? t("sending") : t("sendMessage")}</button>
         {error && draft && <button type="button" onClick={() => { if (!navigator.clipboard) setError(t('copyUnavailable')); else void navigator.clipboard.writeText(draft).catch(() => setError(t('copyUnavailable'))) }}>{t("copyDraft")}</button>}
         {!!channel.is_archived && <p>{t("archivedChannelMessagesAreReadOnly")}</p>}
       </form></section>{thread && <ThreadPanel key={thread} channel={channel} parentId={thread} role={role} onClose={() => { setThread(null); openConversationLink({ workspace: channel.workspace_id, channel: channel.id }); setMobileView('conversation') }} onChanged={changed} />}</div>

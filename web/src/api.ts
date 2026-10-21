@@ -20,7 +20,9 @@ export async function query<T>(name: string, params: Record<string, unknown> = {
   return result.rows
 }
 export async function batch(name: string, params: Record<string, unknown>): Promise<number[]> {
-  const result = await app.actions.call<{ results: { meta: { changes: number } }[] }>(name, params)
+  const result = await app.actions.call<{ results: { meta: { changes: number }; rows?: { error?: string }[] }[] }>(name, params)
+  const validationError = result.results.flatMap(row => row.rows ?? []).find(row => row.error)?.error
+  if (validationError) throw new Error(validationError)
   return result.results.map(row => row.meta.changes)
 }
 export const errorText = (error: unknown) => {

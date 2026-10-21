@@ -16,7 +16,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
     }
   }, [])
   return <dialog ref={ref} aria-labelledby={id} onCancel={event => { event.preventDefault(); onClose() }}>
-    <header className="slackie-header"><h2 id={id} dir="auto">{title}</h2><button onClick={onClose}>{t("close")}</button></header>
+    <header className="slackie-header"><h2 id={id} dir="auto">{title}</h2><button aria-label={t("close")} onClick={onClose}>{t("close")}</button></header>
     {children}
   </dialog>
 }

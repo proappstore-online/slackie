@@ -2,14 +2,15 @@
   "tools": [
     {
       "name": "workspace_create",
-      "description": "workspace create. Workspace name must be lowercase with no spaces: use a-z, 0-9, underscores or hyphens (1..100 characters). Invalid names are refused with zero changed rows; audit contains no message body.",
+      "description": "workspace create. Workspace name must be lowercase with no spaces: use a-z, 0-9, underscores or hyphens (1..100 characters). Invalid names are refused with zero changed rows and a final result row containing a clear error; audit contains no message body.",
       "operation": "batch",
       "statements": [
-        "INSERT OR IGNORE INTO workspaces(id,name,slug,created_by,created_at) SELECT :workspace_id, :name, :slug, :__user_id, :__now WHERE length(:workspace_id) BETWEEN 1 AND 128 AND length(:name) BETWEEN 1 AND 100 AND :name NOT GLOB '*[^a-z0-9_-]*' AND length(:slug) BETWEEN 1 AND 80 AND :slug NOT GLOB '*[^a-z0-9-]*'",
+        "INSERT OR IGNORE INTO workspaces(id,name,slug,created_by,created_at) SELECT :workspace_id, :name, :slug, :__user_id, :__now WHERE length(:workspace_id) BETWEEN 1 AND 128 AND length(:name) BETWEEN 1 AND 100 AND :name NOT GLOB '*[^a-z0-9_-]*' AND instr(:name, char(0)) = 0 AND length(:slug) BETWEEN 1 AND 80 AND :slug NOT GLOB '*[^a-z0-9-]*'",
         "INSERT OR IGNORE INTO workspace_members(workspace_id,user_id,role,joined_at,mention_handle) SELECT id,:__user_id,'owner',:__now,'uid-' || lower(hex(CAST(:__user_id AS BLOB))) FROM workspaces WHERE id = :workspace_id AND created_by = :__user_id AND created_at = :__now AND changes() > 0",
         "INSERT INTO audit_log (id, workspace_id, actor_id, action, target_id, created_at) SELECT :__uuid, :workspace_id, :__user_id, 'workspace_create', :workspace_id, :__now WHERE changes() > 0 AND EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = :workspace_id AND me.user_id = :__user_id)",
         "INSERT INTO activity_log(id,workspace_id,actor_id,entity_type,entity_id,action,changes,created_at) SELECT id,workspace_id,actor_id,'workspace',target_id,action,'pending',created_at FROM audit_log WHERE rowid = last_insert_rowid() AND changes() > 0 AND actor_id = :__user_id AND workspace_id = :workspace_id AND action = 'workspace_create' AND created_at = :__now",
-        "UPDATE activity_log SET changes = '{}' WHERE workspace_id = :workspace_id AND actor_id = :__user_id AND action = 'workspace_create' AND created_at = :__now AND changes = 'pending'"
+        "UPDATE activity_log SET changes = '{}' WHERE workspace_id = :workspace_id AND actor_id = :__user_id AND action = 'workspace_create' AND created_at = :__now AND changes = 'pending'",
+        "SELECT 'Workspace name must be lowercase with no spaces. Use 1 to 100 lowercase letters, numbers, underscores or hyphens.' AS error WHERE :__user_id IS NOT NULL AND (length(:name) NOT BETWEEN 1 AND 100 OR :name GLOB '*[^a-z0-9_-]*' OR instr(:name, char(0)) > 0)"
       ],
       "params": {
         "workspace_id": {

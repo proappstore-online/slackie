@@ -82,7 +82,7 @@ export function ThreadPanel({ channel, parentId, role, onClose, onChanged }: { c
     } catch (err) { if (accessLost(err)) { setRoot(null); setReplies([]); setDraft(''); pending.current = null; observer.current.reset(); speech.current.clearAnnouncements() }; setError(errorText(err)) } finally { setBusy(false) }
   }
   return <section aria-labelledby={labelId} className="thread-panel">
-    <header className="slackie-header"><h3 id={labelId} ref={titleRef} tabIndex={-1}>{t("threadText")}</h3><button onClick={onClose}>{t("closeThread")}</button></header>
+    <header className="slackie-header"><h3 id={labelId} ref={titleRef} tabIndex={-1}>{t("threadText")}</h3><button aria-label={t("closeThread")} onClick={onClose}>{t("closeThread")}</button></header>
     {loading && <p role="status">{t("loadingThread")}</p>}{error && <p role="alert">{error}</p>}
     {root && <>
       <p><strong dir="auto">{root.display_name || t("formerMember")}</strong></p>
@@ -93,7 +93,7 @@ export function ThreadPanel({ channel, parentId, role, onClose, onChanged }: { c
           role={role} archived={!!channel.is_archived} onChanged={changed} />
       )}</ol>{!replies.length && <p>{t("noRepliesYet")}</p>}<div ref={endRef} /></div>
       <form onSubmit={submit} className="slackie-form"><label>{t("reply")}<textarea dir="auto" lang="" required maxLength={10000} value={draft} readOnly={busy} disabled={!!channel.is_archived || root.deleted_at !== null}
-          onChange={event => setDraft(event.target.value)} onKeyDown={event => submitOnEnter(event, preferences.sendOnEnter)} /></label><button disabled={busy || !!channel.is_archived || root.deleted_at !== null || !draft.trim()}>{busy ? t("sending") : t("sendReply")}</button>
+          onChange={event => setDraft(event.target.value)} onKeyDown={event => submitOnEnter(event, preferences.sendOnEnter)} /></label><button aria-label={t("sendReply")} disabled={busy || !!channel.is_archived || root.deleted_at !== null || !draft.trim()}>{busy ? t("sending") : t("sendReply")}</button>
         {error && draft && <button type="button" onClick={() => { if (!navigator.clipboard) setError(t('copyUnavailable')); else void navigator.clipboard.writeText(draft).catch(() => setError(t('copyUnavailable'))) }}>{t("copyDraft")}</button>}
       </form>
     </>}

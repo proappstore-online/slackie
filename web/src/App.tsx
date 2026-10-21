@@ -31,7 +31,7 @@ function AppShell() {
     <header className="top-bar">
       {user && mobileView !== 'channels' && <button className="mobile-back" aria-label={t("back")} onClick={() => setMobileView(mobileView === 'thread' ? 'conversation' : 'channels')}>{"\u2190"}</button>}
       <div className="top-title"><h1>{t("slackie")}</h1>{user && <p>{context.workspace}{context.channel && ' / #' + context.channel}{mobileView === 'thread' && t("thread")}</p>}</div>
-      {user && <><button className="avatar-button" aria-label={t("openYourProfile")} onClick={() => setProfileOpen(true)}>{user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : <span aria-hidden="true">{user.login?.slice(0, 1).toUpperCase() || t("you")}</span>}</button><button onClick={signOut}>{t("signOut")}</button></>}
+      {user && <><button className="avatar-button" aria-label={t("openYourProfile")} onClick={() => setProfileOpen(true)}>{user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : <span aria-hidden="true">{user.login?.slice(0, 1).toUpperCase() || t("you")}</span>}</button><button aria-label={t("signOut")} onClick={signOut}>{t("signOut")}</button></>}
     </header>
     <div className="scroll-area">
     <ExperienceSettings />
@@ -107,7 +107,7 @@ function WorkspaceShell({ profileOpen, onProfileClose }: { profileOpen: boolean;
         {workspaces.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
       </select></label>
       <details><summary>{t("createAWorkspace")}</summary><form onSubmit={create} className="slackie-form">
-        <label>{t("name")}<input required maxLength={100} pattern="[a-z0-9_-]+" title={nameHelp} value={name} onChange={event => setName(event.target.value)} aria-invalid={nameInvalid} aria-describedby="workspace-name-help" /></label>
+        <label>{t("name")}<input required autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={100} pattern="[a-z0-9_-]+" title={nameHelp} value={name} onChange={event => setName(event.target.value)} aria-invalid={nameInvalid} aria-describedby="workspace-name-help" /></label>
         <small id="workspace-name-help" role={nameInvalid ? 'alert' : undefined}>{nameHelp}</small>
         <label>{t("slug")}<input required maxLength={80} pattern="[a-z0-9-]+" value={slug} onChange={event => setSlug(event.target.value)} aria-describedby="slug-help" /></label>
         <small id="slug-help">{t("lowercaseLettersNumbersAndHyphens")}</small>

@@ -17,7 +17,7 @@ export function Settings({ workspace, onChanged }: { workspace: Workspace; onCha
   }
   return <main id="conversation"><h2>{t("workspaceSettings")}</h2>
     <form onSubmit={submit} className="slackie-form"><label>{t("workspaceName")}<input required maxLength={100} value={name} readOnly={workspace.role !== 'owner'} onChange={event => { setName(event.target.value); setSaved(false) }} />
-    </label>{workspace.role === 'owner' ? <button disabled={busy || !name.trim() || name.trim() === workspace.name}>{t("saveWorkspaceName")}</button>
+    </label>{workspace.role === 'owner' ? <button aria-label={t("saveWorkspaceName")} disabled={busy || !name.trim() || name.trim() === workspace.name}>{t("saveWorkspaceName")}</button>
       : <p>{t("onlyTheWorkspaceOwnerCanChangeTheName")}</p>}</form>
     {error && <p role="alert">{error}</p>}{saved && <p role="status">{t("workspaceNameSaved")}</p>}
   </main>
