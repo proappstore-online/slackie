@@ -13,6 +13,7 @@ or operational commitments.
 | [system-architecture.md](system-architecture.md) | Proposed PAS components, boundaries, reliability, and deployment shape. |
 | [data-model.md](data-model.md) | Tenant-scoped entities, relationships, indexes, integrity, and retention. |
 | [realtime-and-api.md](realtime-and-api.md) | API/resource conventions, room events, ordering, sync, and failure handling. |
+| [design/trust-moderation-and-privacy.md](design/trust-moderation-and-privacy.md) | E13 case, enforcement, audit, administration, subject-request and incident design with review gates. |
 | [security-and-trust.md](security-and-trust.md) | Roles, authorization, privacy, abuse controls, and auditability. |
 | [roadmap.md](roadmap.md) | Phases, release gates, risks, and decisions to validate. |
 | [research-foundations.md](research-foundations.md) | Primary-source research and platform constraints that shaped the plan. |

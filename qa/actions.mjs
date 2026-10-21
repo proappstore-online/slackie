@@ -571,4 +571,62 @@ for (const [send, field] of [['message_send', 'body'], ['send_message', 'content
 ok(call('get_messages', 'integration-actor', IC).length === 0, 'workspace removal revokes automation prerequisite reads')
 ok(db.prepare('PRAGMA foreign_key_check').all().length === 0, 'E15 authorization regressions preserve foreign keys')
 
+// E13 prerequisites: privileged deletion still requires live channel authority,
+// and audit failure must roll back tombstones and derived attention together.
+// These tests do not implement cases, appeals, holds or subject export services.
+const TW = { workspace_id: 'trust-boundary' }
+const TC = { ...TW, channel_id: 'trust-private' }
+call('workspace_create', 'trust-owner', { ...TW, name: 'trust', slug: 'trust-boundary' })
+for (const user_id of ['trust-author', 'trust-admin', 'trust-reader'])
+ call('workspace_member_add', 'trust-owner', { ...TW, user_id })
+call('update_member_role', 'trust-owner', { ...TW, user_id: 'trust-admin', role: 'admin' })
+call('create_channel', 'trust-owner', { ...TC, name: 'restricted', is_private: 1 })
+for (const user_id of ['trust-author', 'trust-reader'])
+ call('invite_to_channel', 'trust-owner', { ...TC, user_id })
+call('update_my_profile', 'trust-reader', { ...TW, display_name: 'sensitive@example.invalid', mention_handle: 'trust-reader' })
+const sensitiveBody = 'evidence-secret https://example.invalid/download?token=secret @trust-reader'
+for (const remove of ['message_delete', 'delete_message']) {
+ const target = { ...TC, message_id: 'trust-' + remove }
+ call('send_message', 'trust-author', { ...target, content: sensitiveBody })
+ for (const actor of ['trust-admin', 'trust-reader', 'outsider']) denied(remove, actor, target)
+ denied(remove, 'trust-owner', { ...target, workspace_id: 'w1' })
+ const auditBefore = db.prepare('SELECT count(*) AS n FROM audit_log').get().n
+ const activityBefore = db.prepare('SELECT count(*) AS n FROM activity_log').get().n
+ failWriteTo = 'audit_log'
+ let failed = false
+ try { call(remove, 'trust-owner', target) } catch { failed = true }
+ failWriteTo = null
+ ok(failed, remove + ' aborts when audit storage fails')
+ ok(db.prepare('SELECT body FROM messages WHERE id=?').get(target.message_id).body === sensitiveBody, remove + ' rolls back tombstone on audit failure')
+ ok(db.prepare('SELECT count(*) AS n FROM mentions WHERE message_id=?').get(target.message_id).n === 1, remove + ' retains derived mention on rollback')
+ ok(db.prepare('SELECT count(*) AS n FROM audit_log').get().n === auditBefore && db.prepare('SELECT count(*) AS n FROM activity_log').get().n === activityBefore, remove + ' leaves no partial event')
+ ok(call(remove, 'trust-owner', target)[0] === 1, remove + ' allows owner with current private membership')
+ const row = db.prepare('SELECT body,deleted_at FROM messages WHERE id=?').get(target.message_id)
+ ok(row.body === '' && row.deleted_at !== null, remove + ' produces body-free tombstone')
+ ok(db.prepare('SELECT count(*) AS n FROM mentions WHERE message_id=?').get(target.message_id).n === 0, remove + ' removes derived attention')
+ denied(remove, 'trust-owner', target)
+ const events = db.prepare('SELECT * FROM audit_log WHERE target_id=? AND action=?').all(target.message_id, remove)
+ ok(events.length === 1 && events[0].actor_id === 'trust-owner', remove + ' retry has exactly one attributed event')
+}
+// An administrator may moderate only after explicit admission to the channel.
+call('invite_to_channel', 'trust-owner', { ...TC, user_id: 'trust-admin' })
+const adminTarget = { ...TC, message_id: 'trust-admin-removal' }
+call('send_message', 'trust-author', { ...adminTarget, content: sensitiveBody })
+ok(call('delete_message', 'trust-admin', adminTarget)[0] === 1, 'admitted admin can tombstone another author message')
+const staleTarget = { ...TC, message_id: 'trust-stale-admin' }
+call('send_message', 'trust-author', { ...staleTarget, content: sensitiveBody })
+call('remove_member', 'trust-owner', { ...TW, user_id: 'trust-admin' })
+for (const remove of ['message_delete', 'delete_message']) denied(remove, 'trust-admin', staleTarget)
+for (const change of ['workspace_member_role_set', 'update_member_role'])
+ denied(change, 'trust-reader', { ...TW, user_id: 'trust-reader', role: 'admin' })
+for (const remove of ['workspace_member_remove', 'remove_member'])
+ denied(remove, 'trust-owner', { ...TW, user_id: 'trust-owner' })
+const trustLogs = JSON.stringify({
+ audit: db.prepare('SELECT * FROM audit_log WHERE workspace_id=?').all(TW.workspace_id),
+ activity: db.prepare('SELECT * FROM activity_log WHERE workspace_id=?').all(TW.workspace_id),
+})
+for (const secret of [sensitiveBody, 'evidence-secret', 'sensitive@example.invalid', 'https://example.invalid', 'token=secret'])
+ ok(!trustLogs.includes(secret), 'domain audit omits sensitive marker ' + secret.split(' ')[0])
+ok(db.prepare('PRAGMA foreign_key_check').all().length === 0, 'E13 prerequisites preserve foreign keys')
+
 console.log('Passed ' + checks + ' assertions across all '+Object.keys(TOOLS).length+' actions.')
