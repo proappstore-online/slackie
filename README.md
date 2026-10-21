@@ -53,7 +53,7 @@ not supply those services.
 ## Deployment
 
 Pushes to `main` invoke the PAS reusable deployment workflow: apply the committed
-`0001_baseline`, register authenticated actions, then upload the frontend to
+`0001_baseline` and subsequent additive migrations, register authenticated actions, then upload the frontend to
 https://slackie.proappstore.online. Schema contains no triggers or cascades; action
 batches maintain member handles, mentions, activity records, and membership cleanup.
 See [baseline and action invariants](docs/baseline-actions.md).

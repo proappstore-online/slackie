@@ -11,6 +11,12 @@ audit or activity rows. Its final batch result returns an explicit `error` row f
 invalid names; the frontend batch adapter displays that message and keeps input.
 Existing workspaces and the separate rename action are unchanged.
 
+PAS action batches prohibit SELECT statements. Additive migration 0002 supplies
+a single public validation-message row. The final statement uses a no-op UPDATE
+with RETURNING to return that fixed message on invalid input; no submitted input
+is stored there. Valid creation does not touch the row. This preserves the
+trigger-free schema and returns a clear error without exposing database errors.
+
 `pnpm test` includes real React DOM form tests (typing, submission guard, valid
 creation and server error preservation), SQL validation and authorization tests.
 The deployment workflow also runs Playwright against the delivered frontend.

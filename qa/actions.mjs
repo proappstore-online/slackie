@@ -78,7 +78,7 @@ function ok(value, label) { if (!value) throw new Error(label); checks++; consol
 function denied(name, user, params) {
   const before = db.prepare('SELECT count(*) AS n FROM activity_log').get().n
   const result = call(name, user, params)
-  ok(Array.isArray(result) && result.every(n => n === 0), name + ' refuses unauthorized mutation')
+  ok(Array.isArray(result) && (name === 'workspace_create' ? result.slice(0, -1) : result).every(n => n === 0), name + ' refuses unauthorized mutation')
   ok(db.prepare('SELECT count(*) AS n FROM activity_log').get().n === before, name + ' refusal has no audit')
 }
 const W = { workspace_id: 'w1' }, C = { ...W, channel_id: 'c1' }, P = { ...W, channel_id: 'private' }
@@ -207,7 +207,7 @@ denied('reaction_add', 'member', { ...C, message_id: 'page-01', emoji: 'x' })
 ok(call('message_list', 'member', C).length === 50, 'archive preserves authorized history')
 // The empty production schema uses one final, DDL-only baseline.
 const baseline = read('../migrations.json').migrations
-ok(baseline.length === 1 && baseline[0].name === '0001_baseline', 'one named baseline migration')
+ok(baseline[0].name === '0001_baseline' && baseline[1].name === '0002_workspace_creation_validation', 'baseline followed by additive validation migration')
 ok(db.prepare("SELECT count(*) AS n FROM sqlite_schema WHERE type = 'trigger'").get().n === 0, 'baseline has no implicit write logic')
 ok(!/\b(UPDATE|DELETE|DROP|CASCADE)\b/i.test(baseline[0].sql), 'baseline contains only additive schema')
 ok(db.prepare('SELECT mention_handle FROM workspace_members WHERE workspace_id=? AND user_id=?').get('w1','owner').mention_handle === 'uid-' + Buffer.from('owner').toString('hex'), 'workspace owner receives default mention handle')
@@ -492,6 +492,8 @@ for (const name of ['my-workspace', 'team_123', 'a'.repeat(100)]) {
  const [errorSql, errorValues] = bind(TOOLS.workspace_create.statements.at(-1), { name }, 'validation-owner', ++clock)
  ok(db.prepare(errorSql).all(...errorValues).length === 0, 'valid name has no server validation error')
 }
+
+ok(db.prepare('SELECT count(*) AS n FROM workspace_creation_validation').get().n === 1, 'validation response stores only one fixed message, never submitted input')
 
 // E17 prerequisite: every content surface keeps live workspace AND channel
 // authority. Exercise the registered SQL, including compatibility read names.
