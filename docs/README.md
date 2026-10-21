@@ -8,6 +8,7 @@ or operational commitments.
 | --- | --- |
 | [product-brief.md](product-brief.md) | Audience, problem, MVP scope, principles, and success measures. |
 | [visual-system.md](visual-system.md) | Component inventory, visual decisions, contrast measurements and review gate. |
+| [design/inclusive-experience.md](design/inclusive-experience.md) | E14 proposed keyboard, announcement, recovery and localization contracts with acceptance matrix and outstanding review gates. |
 | [experience-design.md](experience-design.md) | Navigation, user journeys, states, accessibility, and interaction guidance. |
 | [system-architecture.md](system-architecture.md) | Proposed PAS components, boundaries, reliability, and deployment shape. |
 | [data-model.md](data-model.md) | Tenant-scoped entities, relationships, indexes, integrity, and retention. |

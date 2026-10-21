@@ -53,3 +53,11 @@ criteria in this epic.
 Issue #24 implementation decisions and measured contrast are recorded in
 [visual-system.md](../visual-system.md). E14.1 remains unchecked pending the real
 Windows contrast-theme review specified in that record.
+
+## Remaining contract proposal (2026-10-21)
+
+[Inclusive experience](../design/inclusive-experience.md) records proposed keyboard,
+bounded announcement, recovery-state and localization decisions plus a test/review
+matrix for #26–#28. These are proposals awaiting review; no additional task is
+marked complete. Existing mobile decisions are in [mobile-navigation.md](../mobile-navigation.md).
+The modal containment regression is automated coverage, not NVDA/VoiceOver evidence.

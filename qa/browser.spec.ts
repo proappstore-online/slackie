@@ -622,3 +622,25 @@ test('long mobile history scrolls without moving bars or composer', async ({ pag
   await expect(page.locator('.top-bar')).toBeInViewport()
   await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeInViewport()
 })
+
+test('modal contains forward and backward keyboard navigation and restores its opener', async ({ page }) => {
+  await fixture(page)
+  const opener = page.getByRole('button', { name: '+ New Channel', exact: true })
+  await opener.focus()
+  await page.keyboard.press('Enter')
+  const dialog = page.getByRole('dialog', { name: 'New channel' })
+  const controls = dialog.locator('button, input, select, textarea, a[href]').filter({ visible: true })
+  const count = await controls.count()
+  expect(count).toBeGreaterThan(1)
+  for (const direction of ['Tab', 'Shift+Tab']) {
+    for (let i = 0; i < count + 2; i++) {
+      await page.keyboard.press(direction)
+      // Native wrapping may stop on the document before reentering.
+      if (await page.evaluate(() => document.activeElement === document.body)) await page.keyboard.press(direction)
+      await expect.poll(() => dialog.evaluate(el => el.contains(document.activeElement))).toBe(true)
+    }
+  }
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await expect(opener).toBeFocused()
+})
