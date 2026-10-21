@@ -15,6 +15,7 @@ or operational commitments.
 | [security-and-trust.md](security-and-trust.md) | Roles, authorization, privacy, abuse controls, and auditability. |
 | [roadmap.md](roadmap.md) | Phases, release gates, risks, and decisions to validate. |
 | [research-foundations.md](research-foundations.md) | Primary-source research and platform constraints that shaped the plan. |
+| [design/post-mvp-collaboration.md](design/post-mvp-collaboration.md) | E7 proposal routing, review gates and future acceptance tests. |
 | [epics/](epics/) | Build-ready epics with sequenced tasks and acceptance criteria. |
 | [adr/](adr/) | Architecture decision records as choices are made. |
 

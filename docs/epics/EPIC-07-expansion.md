@@ -30,3 +30,10 @@ block their separately sequenced design work.
 - Each proposal is routed to one owning epic with a standalone value case,
   permission model, threat model, cost/reliability analysis, and explicit MVP
   exclusion until approved.
+
+## Review material
+
+The [post-MVP routing proposal](../design/post-mvp-collaboration.md) records each
+proposal's owning epic, value case, permission/threat boundaries, cost/reliability
+questions, staged entry gates and acceptance test plan. It is awaiting review;
+these tasks are not marked complete and no delivery or provisioning is approved.
