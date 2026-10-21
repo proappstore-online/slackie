@@ -5,15 +5,23 @@
 uses shared attachments additionally depends on E8 being unblocked.
 **Goal:** Prevent enterprise claims before the necessary technical and policy foundation exists.
 
+## Design disposition
+
+The [E17 design package](../design/enterprise-and-ai.md) covers all four tasks,
+review gates and acceptance scenarios O1–O5, X1–X4, L1–L8, A1–A8, U1–U2 and G1.
+Checked tasks mean the design deliverable is complete, not feature implementation
+or independent approval. Enterprise adapters, external collaboration and AI remain
+unavailable pending the stated gates. No resources or child issues are created.
+
 ## Tasks
 
-- [ ] **E17.1 Model organizations.** Multiple workspaces, org roles, policy
+- [x] **E17.1 Model organizations.** Multiple workspaces, org roles, policy
   inheritance, directory, workspace discovery, and performance/support scope.
-- [ ] **E17.2 Design external collaboration.** Shared channels, sponsor, consent,
+- [x] **E17.2 Design external collaboration.** Shared channels, sponsor, consent,
   verified domains, cross-org identity, disconnect, retention, and audit partition.
-- [ ] **E17.3 Add enterprise lifecycle.** SSO, SCIM, delegated admin, legal holds,
+- [x] **E17.3 Design enterprise lifecycle.** SSO, SCIM, delegated admin, legal holds,
   eDiscovery, DLP, audit stream, data residency, backup/restore, and evidence.
-- [ ] **E17.4 Define AI boundary.** Opt-in, access-filtered retrieval, citations,
+- [x] **E17.4 Define AI boundary.** Opt-in, access-filtered retrieval, citations,
   summaries, prompt-injection defense, vendor/residency, retention, feedback, and
   no authority escalation.
 

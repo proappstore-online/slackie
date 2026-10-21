@@ -489,4 +489,47 @@ for (const name of ['my-workspace', 'team_123']) {
  ok(call('workspace_get', 'validation-owner', { workspace_id })[0].name === name, 'valid workspace is readable by its owner')
 }
 
+// E17 prerequisite: every content surface keeps live workspace AND channel
+// authority. Exercise the registered SQL, including compatibility read names.
+const EW = { workspace_id: 'enterprise-boundary' }
+const EC = { ...EW, channel_id: 'enterprise-private' }
+const EM = { ...EC, message_id: 'enterprise-source' }
+call('workspace_create', 'enterprise-owner', { ...EW, name: 'enterprise', slug: 'enterprise-boundary' })
+for (const user_id of ['enterprise-reader', 'enterprise-admin'])
+ call('workspace_member_add', 'enterprise-owner', { ...EW, user_id })
+call('update_member_role', 'enterprise-owner', { ...EW, user_id: 'enterprise-admin', role: 'admin' })
+call('create_channel', 'enterprise-owner', { ...EW, channel_id: 'enterprise-fallback', name: 'general' })
+call('join_channel', 'enterprise-reader', { ...EW, channel_id: 'enterprise-fallback' })
+call('create_channel', 'enterprise-owner', { ...EC, name: 'restricted', is_private: 1 })
+call('invite_to_channel', 'enterprise-owner', { ...EC, user_id: 'enterprise-reader' })
+call('update_my_profile', 'enterprise-reader', { ...EW, display_name: 'Reader', mention_handle: 'enterprise-reader' })
+call('send_message', 'enterprise-owner', { ...EM, content: 'restricted source @enterprise-reader' })
+call('thread_reply', 'enterprise-owner', { ...EC, parent_id: EM.message_id, message_id: 'enterprise-reply', content: 'restricted reply' })
+call('add_reaction', 'enterprise-owner', { ...EM, emoji: 'thumbsup' })
+const enterpriseReads = [
+ ['message_list', EC], ['get_messages', EC],
+ ['get_thread_root', { ...EC, parent_id: EM.message_id }],
+ ['list_thread', { ...EC, parent_id: EM.message_id }],
+ ['get_reactions', EM], ['list_mentions', EW],
+]
+for (const [name, params] of enterpriseReads) {
+ ok(call(name, 'enterprise-reader', params).length > 0, name + ' E17 prerequisite allows current member')
+ for (const actor of ['enterprise-admin', 'outsider', 'other'])
+  ok(call(name, actor, params).length === 0, name + ' E17 prerequisite hides private sources from ' + actor)
+}
+// Revocation between retrieval and the next operation cannot reuse earlier access.
+ok(call('leave_channel', 'enterprise-reader', EC)[0] === 1, 'reader leaves restricted source channel')
+for (const [name, params] of enterpriseReads)
+ ok(call(name, 'enterprise-reader', params).length === 0, name + ' denies source after channel leave')
+ok(call('get_mention_count', 'enterprise-reader', EW)[0].count === 0, 'revoked source contributes no derived attention count')
+call('invite_to_channel', 'enterprise-owner', { ...EC, user_id: 'enterprise-reader' })
+ok(call('get_messages', 'enterprise-reader', EC).length > 0, 'explicit reinvitation restores source access')
+call('workspace_member_remove', 'enterprise-owner', { ...EW, user_id: 'enterprise-reader' })
+for (const [name, params] of enterpriseReads)
+ ok(call(name, 'enterprise-reader', params).length === 0, name + ' denies source after workspace removal')
+// Even an owner needs channel membership; role alone is never content authority.
+ok(call('leave_channel', 'enterprise-owner', EC)[0] === 1, 'owner leaves restricted source channel')
+for (const [name, params] of enterpriseReads)
+ ok(call(name, 'enterprise-owner', params).length === 0, name + ' denies private content to owner outside channel')
+
 console.log('Passed ' + checks + ' assertions across all '+Object.keys(TOOLS).length+' actions.')

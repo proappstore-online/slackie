@@ -16,6 +16,7 @@ or operational commitments.
 | [roadmap.md](roadmap.md) | Phases, release gates, risks, and decisions to validate. |
 | [research-foundations.md](research-foundations.md) | Primary-source research and platform constraints that shaped the plan. |
 | [design/post-mvp-collaboration.md](design/post-mvp-collaboration.md) | E7 proposal routing, review gates and future acceptance tests. |
+| [design/enterprise-and-ai.md](design/enterprise-and-ai.md) | E17 organization, external collaboration, enterprise lifecycle and AI design gates and acceptance tests. |
 | [epics/](epics/) | Build-ready epics with sequenced tasks and acceptance criteria. |
 | [adr/](adr/) | Architecture decision records as choices are made. |
 
