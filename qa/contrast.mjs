@@ -9,7 +9,7 @@ console.log('| Theme | Pair | Ratio | Minimum |\n| --- | --- | ---: | ---: |')
 for (const [theme, selector] of [['Light', ':root {'], ['Dark', ":root[data-theme='dark'] {"]]) {
   const block = css.split(selector)[1].split('}')[0]
   const tokens = Object.fromEntries([...block.matchAll(/--([\w-]+): (#[a-f0-9]{6});/gi)].map(m => [m[1], m[2]]))
-  for (const [fg, bg, minimum] of [['ink','paper',4.5],['muted','paper',4.5],['ink','paper-deep',4.5],['line-strong','paper',3],['line-strong','paper-deep',3],['focus','paper',3],['focus','paper-deep',3],['danger','danger-soft',4.5],['danger','paper',3],['disabled','paper-deep',4.5],['success','paper',4.5],['warning','paper',4.5]]) {
+  for (const [fg, bg, minimum] of [['ink','paper',4.5],['muted','paper',4.5],['muted','paper-deep',4.5],['ink','paper-deep',4.5],['line-strong','paper',3],['line-strong','paper-deep',3],['focus','paper',4.5],['focus','paper-deep',4.5],['danger','danger-soft',4.5],['danger','paper',4.5],['disabled','paper-deep',4.5],['success','paper',4.5],['warning','paper',4.5]]) {
     const a=luminance(tokens[fg]), b=luminance(tokens[bg]), ratio=(Math.max(a,b)+.05)/(Math.min(a,b)+.05)
     assert.ok(ratio >= minimum, `${theme} ${fg}/${bg}: ${ratio}`)
     console.log(`| ${theme} | ${fg} / ${bg} | ${ratio.toFixed(2)}:1 | ${minimum}:1 |`)

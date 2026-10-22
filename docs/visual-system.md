@@ -1,4 +1,4 @@
-# Visual system and contrast review � issue #24
+# Visual system and contrast review — issue #24
 
 Decision record: 2026-10-21. Scope is the existing React/Vite product. No PAS
 provisioning, new navigation, density setting, or child build tasks.
@@ -75,25 +75,27 @@ not a claim that every rendered screen meets WCAG.
 | --- | --- | ---: | ---: |
 | Light | ink / paper | 18.88:1 | 4.5:1 |
 | Light | muted / paper | 5.74:1 | 4.5:1 |
+| Light | muted / paper-deep | 5.36:1 | 4.5:1 |
 | Light | ink / paper-deep | 17.63:1 | 4.5:1 |
 | Light | line-strong / paper | 4.54:1 | 3:1 |
 | Light | line-strong / paper-deep | 4.24:1 | 3:1 |
-| Light | focus / paper | 7.45:1 | 3:1 |
-| Light | focus / paper-deep | 6.95:1 | 3:1 |
+| Light | focus / paper | 7.45:1 | 4.5:1 |
+| Light | focus / paper-deep | 6.95:1 | 4.5:1 |
 | Light | danger / danger-soft | 5.91:1 | 4.5:1 |
-| Light | danger / paper | 6.47:1 | 3:1 |
+| Light | danger / paper | 6.47:1 | 4.5:1 |
 | Light | disabled / paper-deep | 5.36:1 | 4.5:1 |
 | Light | success / paper | 6.45:1 | 4.5:1 |
 | Light | warning / paper | 6.70:1 | 4.5:1 |
 | Dark | ink / paper | 18.43:1 | 4.5:1 |
 | Dark | muted / paper | 5.92:1 | 4.5:1 |
+| Dark | muted / paper-deep | 5.58:1 | 4.5:1 |
 | Dark | ink / paper-deep | 17.37:1 | 4.5:1 |
 | Dark | line-strong / paper | 5.92:1 | 3:1 |
 | Dark | line-strong / paper-deep | 5.58:1 | 3:1 |
-| Dark | focus / paper | 11.74:1 | 3:1 |
-| Dark | focus / paper-deep | 11.07:1 | 3:1 |
+| Dark | focus / paper | 11.74:1 | 4.5:1 |
+| Dark | focus / paper-deep | 11.07:1 | 4.5:1 |
 | Dark | danger / danger-soft | 5.84:1 | 4.5:1 |
-| Dark | danger / paper | 7.59:1 | 3:1 |
+| Dark | danger / paper | 7.59:1 | 4.5:1 |
 | Dark | disabled / paper-deep | 8.52:1 | 4.5:1 |
 | Dark | success / paper | 11.63:1 | 4.5:1 |
 | Dark | warning / paper | 12.21:1 | 4.5:1 |
@@ -129,3 +131,24 @@ colors and border:none, overriding normal component styles. The provider wrapper
 now explicitly overrides those inline declarations with paper-on-focus colors
 (7.45:1 light, 11.74:1 dark), and ButtonFace/ButtonText plus a solid border in
 forced colors. Dedicated browser regressions cover both provider palettes.
+
+Verification follow-up (2026-10-22): contrast regression checks now enforce
+4.5:1 for focus-colored link text on both content surfaces and error text on
+paper, and cover muted text on the hover/selected surface. The same focus
+pairs also cover the inverse paper-on-focus sign-in buttons. These checks
+previously used the 3:1 non-text threshold for colors also used as text.
+Actual Windows contrast-theme review remains pending; this macOS host can
+only exercise Chromium media emulation. No build-ready child tasks are created.
+
+Local validation on 2026-10-22: `pnpm test` passed 791 SQL assertions,
+35 unit/DOM tests and 26 contrast pairs; the web production build passed.
+All six targeted visual browser regressions passed using cached Chromium
+headless shell 1223 (media emulation only). Installed Chrome failed to launch
+because its VideoToolbox dependency is unavailable on this macOS version;
+Playwright's default browser revision 1248 is not installed.
+
+The full browser suite completed with 40 passed and 11 failed. Failures cover
+message/thread status selectors, member/owner labels, 503 recovery expectations
+and mobile layout. All six visual tests passed within this run as well.
+This follow-up changes only contrast assertions and this document; it does not
+resolve those broader browser failures or claim a clean full browser suite.
