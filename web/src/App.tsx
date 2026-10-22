@@ -26,15 +26,31 @@ function AppShell() {
   const authError = app.auth.authError
   const { mobileView, setMobileView, context } = useNavigation()
   const [profileOpen, setProfileOpen] = useState(false)
-  return <div className="slackie-shell app-shell" data-mobile-view={mobileView}>
+  const shell = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const viewport = window.visualViewport
+    if (!viewport) return
+    // iOS standalone can pan the visual viewport without resizing the layout
+    // viewport. Keep both bars and the composer inside the visible rectangle.
+    const sync = () => {
+      if (viewport.scale !== 1) return // Preserve native pinch zoom.
+      shell.current?.style.setProperty('--visible-height', `${viewport.height}px`)
+      shell.current?.style.setProperty('--visible-top', `${viewport.offsetTop}px`)
+    }
+    sync()
+    viewport.addEventListener('resize', sync)
+    viewport.addEventListener('scroll', sync)
+    return () => { viewport.removeEventListener('resize', sync); viewport.removeEventListener('scroll', sync) }
+  }, [])
+  return <div ref={shell} className="slackie-shell app-shell" data-mobile-view={mobileView}>
     <a href="#conversation" className="skip-link" onClick={() => setMobileView('conversation')}>{t("skipToConversation")}</a>
     <header className="top-bar">
       {user && mobileView !== 'channels' && <button className="mobile-back" aria-label={t("back")} onClick={() => setMobileView(mobileView === 'thread' ? 'conversation' : 'channels')}>{"\u2190"}</button>}
-      <div className="top-title"><h1>{t("slackie")}</h1>{user && <p>{context.workspace}{context.channel && ' / #' + context.channel}{mobileView === 'thread' && t("thread")}</p>}</div>
+      <div className="top-title"><h1>{user ? (mobileView === 'channels' ? context.workspace || t("slackie") : mobileView === 'thread' ? t("thread") : context.channel ? `#${context.channel}` : t("conversation")) : t("slackie")}</h1>{user && <p>{context.workspace}{context.channel && ' / #' + context.channel}{mobileView === 'thread' && t("thread")}</p>}</div>
       {user && <><button className="avatar-button" aria-label={t("openYourProfile")} onClick={() => setProfileOpen(true)}>{user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : <span aria-hidden="true">{user.login?.slice(0, 1).toUpperCase() || t("you")}</span>}</button><button aria-label={t("signOut")} onClick={signOut}>{t("signOut")}</button></>}
     </header>
     <div className="scroll-area">
-    <ExperienceSettings />
+    <div className="shell-preferences"><ExperienceSettings /></div>
     {loading ? <p role="status">{t("checkingYourSession")}</p> : user ? <WorkspaceShell key={user.id} profileOpen={profileOpen} onProfileClose={() => setProfileOpen(false)} />
       : <main id="conversation"><h2>{t("teamConversationsTogether")}</h2>
         <p>{t("signInOrCreateYourAccountToOpenYour")}</p>
@@ -42,7 +58,7 @@ function AppShell() {
         <div className="signin-actions"><SignInButton app={app} provider="google" label={t("signInWithGoogle")} />{' '}
         <SignInButton app={app} provider="github" label={t("signInWithGitHub")} /></div></main>}
     </div>
-    {user && <nav className="bottom-bar" aria-label={t("mobileNavigation")}>{(['channels', 'conversation', 'thread'] as const).map((tab, index) => <button key={tab} aria-current={mobileView === tab ? 'page' : undefined} onClick={() => { setMobileView(tab); window.dispatchEvent(new Event('slackie:navigate')) }}><span aria-hidden="true">{['\u2637', '\u25a4', '\u21b3'][index]}</span>{[t("channels"), t("conversation"), t("threads")][index]}</button>)}</nav>}
+    {user && <nav className="bottom-bar" aria-label={t("mobileNavigation")}>{(['channels', 'conversation', 'thread'] as const).map((tab, index) => <button key={tab} aria-current={mobileView === tab ? 'page' : undefined} onClick={() => { setMobileView(tab); window.dispatchEvent(new Event('slackie:navigate')) }}><span aria-hidden="true">{['\u2637', '\u25a4', '\u21b3'][index]}</span>{[t("channels"), t("conversation"), t("threads")][index]}</button>)}<button onClick={() => setProfileOpen(true)}><span aria-hidden="true">{user.login?.slice(0, 1).toUpperCase() || "●"}</span>{t("you")}</button></nav>}
   </div>
 }
 

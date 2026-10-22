@@ -36,11 +36,11 @@ export default defineConfig({
       },
       manifest: {
         id: '/',
-        display_override: ['window-controls-overlay', 'standalone'],
+        display_override: ['standalone'],
         categories: ['productivity', 'communication'],
         name: 'slackie',
         short_name: 'slackie',
-        description: 'slackie',
+        description: 'Team channels, conversations and threads in your pocket',
         start_url: '/',
         scope: '/',
         display: 'standalone',

@@ -414,3 +414,40 @@ test('rate limiting preserves both drafts and retry IDs; confirmed denial remove
     } finally { await cleanup() }
   }
 })
+
+
+test('mobile visual viewport follows keyboard resize and pan, preserves pinch zoom and removes listeners', async () => {
+  const viewport = new window.EventTarget()
+  Object.assign(viewport, { height: 480, offsetTop: 12, scale: 1 })
+  Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport })
+  try {
+    fixture(); await mount('?workspace=w&channel=c')
+    const shell = document.querySelector('.app-shell')
+    assert.equal(shell.style.getPropertyValue('--visible-height'), '480px')
+    assert.equal(shell.style.getPropertyValue('--visible-top'), '12px')
+    viewport.height = 320; viewport.offsetTop = 30
+    viewport.dispatchEvent(new Event('resize'))
+    assert.equal(shell.style.getPropertyValue('--visible-height'), '320px')
+    assert.equal(shell.style.getPropertyValue('--visible-top'), '30px')
+    viewport.scale = 2; viewport.height = 160
+    viewport.dispatchEvent(new Event('scroll'))
+    assert.equal(shell.style.getPropertyValue('--visible-height'), '320px')
+    await cleanup()
+    viewport.scale = 1; viewport.height = 812
+    viewport.dispatchEvent(new Event('resize'))
+    assert.equal(shell.style.getPropertyValue('--visible-height'), '320px')
+  } finally { delete window.visualViewport; await cleanup() }
+})
+
+test('mobile You button opens own profile without changing conversation or clearing its draft', async () => {
+  try {
+    fixture(); await mount('?workspace=w&channel=c')
+    const composer = document.querySelector('textarea')
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set
+    await act(async () => { setter.call(composer, 'Retained draft'); composer.dispatchEvent(new Event('input', { bubbles: true })) })
+    await click([...document.querySelectorAll('.bottom-bar button')].find(el => el.textContent.endsWith('You')))
+    assert.ok(document.querySelector('dialog[open]'))
+    assert.equal(document.querySelector('.app-shell').dataset.mobileView, 'conversation')
+    assert.equal(composer.value, 'Retained draft')
+  } finally { await cleanup() }
+})

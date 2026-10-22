@@ -166,3 +166,41 @@ the Playwright browser was absent, installation rejects macOS 12, and installed
 Chrome aborts on a missing VideoToolbox symbol. No browser or manual review pass
 is claimed for this revision. This completes the #25 design specification and
 review plan; the approval gate and parent epic evidence remain pending as above.
+
+## Issue #32 implementation and acceptance
+
+The mobile shell reuses the authorized navigation and draft restoration above.
+Its bottom destinations are Channels, Conversation, Threads and You (profile),
+matching the functionality currently available; DMs are not yet implemented.
+The top title follows workspace/channel/thread context. Preferences live on the
+Channels screen on mobile so they do not consume conversation height.
+
+At normal zoom the shell tracks `visualViewport.height` and `offsetTop` to keep
+both bars and the composer inside the visible keyboard viewport, including iOS
+viewport panning. Pinch zoom retains native browser behavior. Safe-area padding
+covers all four edges; message history scrolls independently. Reduced motion
+removes the view entrance animation. The skip link remains clipped until focus.
+The standalone manifest and Apple installation metadata provide the installed
+name, theme/background colors and icons used by OS-generated launch screens.
+
+Regression coverage includes viewport resize/pan, pinch zoom, listener cleanup,
+profile opening without discarding a draft, fixed-bar geometry, long histories,
+keyboard-sized viewports, enlarged text and screenshots in `test-results/`.
+A desktop mobile viewport does not establish installed-phone acceptance. For
+installed-phone acceptance, review the deployed PWA on real iOS and Android phones: installation,
+launch/splash, notches, portrait/landscape, keyboard opening/closing, profile,
+thread navigation and draft retention. Record device/OS and screenshots.
+
+
+On the macOS 12 development host, current Chrome cannot launch. Browser checks
+can run using an isolated Chrome for Testing 131 headless binary via
+`SLACKIE_BROWSER=/path/to/chrome-headless-shell pnpm test:browser`. Deployment
+checks use the workflow's supported Linux Chromium. Neither replaces real-device
+review of the installed PWA.
+
+Validation on 2026-10-22: `pnpm test` passed 791 SQL assertions, 47 unit/DOM tests,
+TypeScript and contrast checks; `pnpm build` passed platform compliance and PWA
+build; the complete browser suite passed all 51 tests using Chrome for Testing
+131. Mocked-PAS viewport evidence: [375×812 conversation](screenshots/mobile-conversation.png)
+and [375×480 keyboard-height layout](screenshots/mobile-keyboard-height.png).
+These screenshots show local test fixtures, not an authenticated phone session.
