@@ -81,6 +81,7 @@ not a claim that every rendered screen meets WCAG.
 | Light | line-strong / paper-deep | 4.24:1 | 3:1 |
 | Light | focus / paper | 7.45:1 | 4.5:1 |
 | Light | focus / paper-deep | 6.95:1 | 4.5:1 |
+| Light | paper / focus | 7.45:1 | 4.5:1 |
 | Light | danger / danger-soft | 5.91:1 | 4.5:1 |
 | Light | danger / paper | 6.47:1 | 4.5:1 |
 | Light | disabled / paper-deep | 5.36:1 | 4.5:1 |
@@ -94,13 +95,30 @@ not a claim that every rendered screen meets WCAG.
 | Dark | line-strong / paper-deep | 5.58:1 | 3:1 |
 | Dark | focus / paper | 11.74:1 | 4.5:1 |
 | Dark | focus / paper-deep | 11.07:1 | 4.5:1 |
+| Dark | paper / focus | 11.74:1 | 4.5:1 |
 | Dark | danger / danger-soft | 5.84:1 | 4.5:1 |
 | Dark | danger / paper | 7.59:1 | 4.5:1 |
 | Dark | disabled / paper-deep | 8.52:1 | 4.5:1 |
 | Dark | success / paper | 11.63:1 | 4.5:1 |
 | Dark | warning / paper | 12.21:1 | 4.5:1 |
 
-## Design review and remaining acceptance gate
+## Design Review Record
+
+Review follow-up date: 2026-10-22. Scope: the component inventory above,
+semantic colors, typography, spacing, density, responsive decisions, state and
+focus treatments, theme precedence, measured contrast and existing browser
+regressions. This is an agent code/design review, not a human sign-off.
+
+Decision: retain the documented visual system and opaque surfaces, require
+4.5:1 for normal text (including links, errors and disabled text), and 3:1 for
+control boundaries. Document the inverse paper-on-focus sign-in pairing
+explicitly. Automatically verify that every measured table row matches the CSS.
+
+Gate status: the code/design review is recorded. **The gate for build-ready
+child tasks is not cleared:** actual Windows contrast-theme review remains
+outstanding. No build-ready child tasks are created by this change. Close #24
+and clear that gate only after the real-theme findings below are recorded and
+any failures are resolved. Preserve research-foundations.md; no PAS provisioning.
 
 Code/design review recorded 2026-10-21: the old translucent control borders,
 light focus mix, opacity-disabled controls and 4.41:1 light error pairing failed
@@ -109,6 +127,40 @@ readable disabled text and 5.91:1 error text. All measured pairs now pass.
 The SDK already follows system changes but does not synchronize theme-color or
 cross-tab theme changes; the startup script now handles both. The script catches
 storage errors; SDK module initialization still requires readable localStorage.
+
+## Forced-Colors Theme Review
+
+Implementation review date: 2026-10-22. Reviewed the existing
+`@media (forced-colors: active)` rules in `web/src/index.css` and the browser
+regressions in `qa/browser.spec.ts`.
+
+Implementation decisions:
+
+- Allow browser remapping with `forced-color-adjust: auto`; use Canvas/CanvasText
+  for the page and alerts, ButtonText for control/dialog borders, Highlight for
+  focus and selected borders, LinkText for links, and GrayText for disabled text.
+- Override SDK inline sign-in colors with ButtonFace/ButtonText and a solid
+  border. Keep selected/pressed underlines and weight, textual errors and dashed
+  invalid borders so state does not rely on color alone.
+- Remove decorative glows, expose message actions, and use a Canvas backdrop
+  with .75 opacity to retain dialog separation.
+
+Verified by Chromium media emulation on 2026-10-22: visible message actions,
+no decorative background image, solid keyboard focus and dialog border,
+dialog Escape focus restoration, dashed invalid borders, automatic color
+adjustment and solid SDK provider borders. Both normal palettes, readable
+non-transparent disabled controls and live/explicit theme precedence also pass
+the six targeted visual browser tests. These assertions do not inspect every
+state in an actual Windows user-selected palette.
+
+Actual Windows theme review evidence:
+
+| Theme | OS/browser | Review date | Findings |
+| --- | --- | --- | --- |
+| Aquatic | Not available on this macOS host | Not performed | Pending actual Windows review |
+| Desert | Not available on this macOS host | Not performed | Pending actual Windows review |
+| Dusk | Not available on this macOS host | Not performed | Pending actual Windows review |
+| Night sky | Not available on this macOS host | Not performed | Pending actual Windows review |
 
 Automated Chromium review covers both normal palettes, live/explicit theme
 precedence, invalid/disabled/focus states, reduced motion,
@@ -152,3 +204,10 @@ message/thread status selectors, member/owner labels, 503 recovery expectations
 and mobile layout. All six visual tests passed within this run as well.
 This follow-up changes only contrast assertions and this document; it does not
 resolve those broader browser failures or claim a clean full browser suite.
+
+Documentation follow-up (2026-10-22): added explicitly named design and
+forced-colors review sections, a real-theme evidence matrix, and separate
+paper-on-focus sign-in measurements. `qa/contrast.mjs` now checks all 28 table
+rows against actual CSS values and rejects missing/non-opaque color tokens.
+The real-theme acceptance gap remains open; CSS support and browser emulation
+do not constitute review of Windows contrast themes.
