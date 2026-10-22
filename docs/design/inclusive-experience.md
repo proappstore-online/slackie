@@ -73,6 +73,10 @@ A generic unavailable state must not reveal existence of an inaccessible channel
 
 ## Localization (#28)
 
+The expanded [localization contract](../localization.md) records precedence,
+externalization, RTL/content-language decisions, validation and the review gate.
+Its evidence status qualifies the implementation summary below.
+
 Initial interface language: English. Inventory includes App session and
 workspace text; Channels navigation/forms; Conversation and ThreadPanel composer,
 status and errors; MessageCard actions/timestamps; Members roles; Mentions counts;

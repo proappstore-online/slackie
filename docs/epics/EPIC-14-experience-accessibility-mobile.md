@@ -95,3 +95,12 @@ focus and test decisions. Repository consistency review records remaining UI
 gaps; product/design approval and native-reader/device evidence remain pending.
 No build-ready child tasks are approved. E14.4/E14.6 remain unchecked for manual
 acceptance.
+
+## E14.5 specification (#28)
+
+[Localization](../localization.md) records the string inventory, catalogue decision,
+locale/time-zone precedence, formatting and content-language rules, RTL readiness
+and pseudo-locale/long-string/plural/DST validation plan. Repository consistency
+review is recorded; product/design approval and manual visual/reader evidence
+remain pending. No build-ready child tasks are approved. E14.5 remains unchecked
+for manual acceptance.

@@ -1,5 +1,5 @@
 export function pseudoLocalize(text: string) {
-  return `［${text.replace(/[aeiou]/gi, letter => ({ a: 'á', e: 'ë', i: 'ï', o: 'ô', u: 'ü' })[letter.toLowerCase()]!)}${'~'.repeat(Math.ceil(text.length * .4))}］`
+  return `［${text.replace(/\{\w+\}|[aeiou]/gi, token => token.startsWith('{') ? token : ({ a: 'á', e: 'ë', i: 'ï', o: 'ô', u: 'ü' })[token.toLowerCase()]!)}${'~'.repeat(Math.ceil(text.length * .4))}］`
 }
 
 // English is the initial shipped interface. Keys cover labels, errors, status,

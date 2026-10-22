@@ -107,3 +107,49 @@ test('resource history drops stale thread context while preserving host query pa
     assert.equal(new URLSearchParams(query).get('host'), 'embedded')
   }
 })
+
+test('locale and zone fallbacks are independent and canonicalized', () => {
+  const savedLocale = resolvePreferences({ locale: 'de-de', timeZone: 'invalid' }, 'fr-FR', 'Australia/Melbourne')
+  assert.equal(savedLocale.locale, 'de-DE')
+  assert.equal(savedLocale.timeZone, 'Australia/Melbourne')
+  const savedZone = resolvePreferences({ locale: '!', timeZone: 'America/New_York' }, 'ar-EG', 'UTC')
+  assert.equal(savedZone.locale, 'ar-EG')
+  assert.equal(savedZone.timeZone, 'America/New_York')
+  assert.equal(resolvePreferences({ locale: 'de-DE' }, '!', 'invalid').timeZone, 'UTC')
+})
+
+test('English sentence plurals remain English with Arabic and German numeric formatting', () => {
+  for (const locale of ['ar-EG', 'de-DE']) {
+    const preferences = resolvePreferences({ locale })
+    for (const count of [0, 1, 2, 5, 11, 101, 12345]) {
+      assert.equal(messageSummary(count, preferences), `${new Intl.NumberFormat(locale).format(count)} new ${count === 1 ? 'message' : 'messages'}.`)
+    }
+  }
+})
+
+test('pseudo expansion preserves named placeholders and interpolation treats content literally', () => {
+  for (const key of Object.keys(english)) {
+    assert.deepEqual(t(key, 'pseudo').match(/\{\w+\}/g), english[key].match(/\{\w+\}/g))
+  }
+  const name = 'مرحبا <img src=x> $& {count} https://example.test/a'
+  assert.equal(message('confirmRemove', { name }), `Remove ${name} from this workspace?`)
+})
+
+test('Melbourne DST gaps, overlaps and local midnight preserve the source instant', () => {
+  const preferences = resolvePreferences({ locale: 'en-AU', timeZone: 'Australia/Melbourne' })
+  const overlap = ['2026-04-04T15:30:00Z', '2026-04-04T16:30:00Z'].map(Date.parse)
+  const labels = overlap.map(value => formatTimestamp(value, preferences))
+  for (const label of labels) assert.match(label, /2:30/)
+  assert.notEqual(labels[0], labels[1])
+  assert.match(formatTimestamp(Date.parse('2026-10-03T15:59:00Z'), preferences), /1:59/)
+  assert.match(formatTimestamp(Date.parse('2026-10-03T16:00:00Z'), preferences), /3:00/)
+  const instant = Date.parse('2026-10-21T13:30:00Z')
+  assert.match(formatTimestamp(instant, preferences), /22 Oct/)
+  assert.match(formatTimestamp(instant, defaults), /Oct 21/)
+  const parts = locale => new Intl.DateTimeFormat(locale, {
+    timeZone: preferences.timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23', numberingSystem: 'latn', calendar: 'gregory',
+  }).formatToParts(instant).filter(part => part.type !== 'literal').sort((a, b) => a.type.localeCompare(b.type))
+  assert.deepEqual(parts('de-DE'), parts('en-AU'))
+  assert.equal(new Date(instant).toISOString(), '2026-10-21T13:30:00.000Z')
+})
