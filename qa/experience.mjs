@@ -95,3 +95,15 @@ test('recovery distinguishes transient failure, rate limiting, denial and expire
   assert.equal(recoveryKind(410, true, true), 'expiredInvite')
   assert.equal(recoveryKind(404), 'unavailable'); assert.equal(recoveryKind(400), 'unknown')
 })
+
+test('resource history drops stale thread context while preserving host query parameters', () => {
+  const thread = conversationSearch('?invite=token&host=embedded', { workspace: 'w', channel: 'c', thread: 'root' })
+  const channel = conversationSearch(thread, { workspace: 'w', channel: 'next' })
+  assert.deepEqual(parseConversationLink(channel), { workspace: 'w', channel: 'next' })
+  const workspace = conversationSearch(channel, { workspace: 'other' })
+  assert.deepEqual(parseConversationLink(workspace), { workspace: 'other' })
+  for (const query of [thread, channel, workspace]) {
+    assert.equal(new URLSearchParams(query).get('invite'), 'token')
+    assert.equal(new URLSearchParams(query).get('host'), 'embedded')
+  }
+})

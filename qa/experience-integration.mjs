@@ -108,6 +108,22 @@ test('real app restores authorized links, rejects unavailable workspace/channel/
     assert.ok(!calls.some(call => call.name === 'list_thread'))
   } finally { await cleanup() }
 })
+test('reload restores the authorized thread selection without persisting private drafts', async () => {
+  try {
+    fixture(); await mount('?workspace=w&channel=c&thread=m1')
+    const drafts = [...document.querySelectorAll('.conversation-content textarea')]
+    assert.equal(drafts.length, 2)
+    await input(drafts[0], 'private channel draft')
+    await input(drafts[1], 'private reply draft')
+    const search = window.location.search
+    assert.ok(!search.includes('draft'))
+    assert.ok(!JSON.stringify(window.localStorage).includes('private'))
+    await cleanup(); fixture(); await mount(search)
+    assert.ok(document.querySelector('.thread-panel'))
+    assert.ok(calls.some(call => call.name === 'get_thread_root' && call.params.parent_id === 'm1'))
+    for (const textarea of document.querySelectorAll('.conversation-content textarea')) assert.equal(textarea.value, '')
+  } finally { await cleanup() }
+})
 test('real app coalesces private-free speech, keeps focus and scroll, silences reconnect and revocation', async () => {
   try {
     fixture(); window.localStorage.setItem(preferenceKey, '{"announceMessages":true}')
