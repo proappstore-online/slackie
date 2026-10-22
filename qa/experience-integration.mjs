@@ -316,3 +316,36 @@ test('workspace form displays explicit server validation errors and retains ente
     assert.equal(slug.value, 'my-team')
   } finally { await cleanup() }
 })
+
+test('thread entry focuses its named heading and close restores the connected reply opener', async () => {
+  try {
+    fixture(); await mount('?workspace=w&channel=c')
+    const opener = button('Reply in thread (0)')
+    opener.focus(); await click(opener)
+    const panel = document.querySelector('.thread-panel')
+    const heading = document.getElementById(panel.getAttribute('aria-labelledby'))
+    assert.equal(document.activeElement, heading)
+    assert.equal(heading.textContent, 'Thread')
+    assert.equal(panel.getAttribute('aria-modal'), null)
+    await click(button('Close thread'))
+    assert.equal(document.querySelector('.thread-panel'), null)
+    assert.equal(document.activeElement, opener)
+  } finally { await cleanup() }
+})
+
+test('dialog names its title, focuses safe Close and handles native cancel without submitting', async () => {
+  try {
+    fixture(); await mount()
+    const opener = button('+ New Channel')
+    opener.focus(); await click(opener)
+    const dialog = document.querySelector('dialog')
+    assert.equal(document.getElementById(dialog.getAttribute('aria-labelledby')).textContent, 'New channel')
+    assert.equal(document.activeElement, button('Close'))
+    const cancel = new window.Event('cancel', { cancelable: true })
+    await act(async () => dialog.dispatchEvent(cancel))
+    assert.equal(cancel.defaultPrevented, true)
+    assert.equal(document.querySelector('dialog'), null)
+    assert.equal(document.activeElement, opener)
+    assert.ok(!calls.some(call => call.name === 'create_channel'))
+  } finally { await cleanup() }
+})

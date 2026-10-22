@@ -77,3 +77,12 @@ Windows contrast themes and real-device zoom/reflow have not been performed.
 Closing the implementation issue at the user's request does not establish WCAG
 conformance or complete the separate evidence in #24–#28. No new PAS resources,
 future navigation capabilities or build-ready child issues were created.
+
+## E14.3 specification (#26)
+
+[Keyboard and assistive technology validation](../keyboard-and-assistive-technology.md)
+records the shortcut inventory, discovery/conflict and command-palette decisions,
+surface contracts and P0 NVDA/VoiceOver matrix at 200% and 400% zoom. Repository
+consistency review is recorded; product/design approval and manual evidence remain
+pending. No build-ready child tasks are approved. E14.3 remains unchecked for
+manual acceptance.
