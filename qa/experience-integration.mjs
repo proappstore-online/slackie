@@ -349,3 +349,68 @@ test('dialog names its title, focuses safe Close and handles native cancel witho
     assert.ok(!calls.some(call => call.name === 'create_channel'))
   } finally { await cleanup() }
 })
+
+test('hiding the document cancels queued speech and resumes with a silent authorized baseline', async () => {
+  try {
+    fixture(); window.localStorage.setItem(preferenceKey, '{"announceMessages":true}')
+    await mount('?workspace=w&channel=c')
+    const composer = document.querySelector('textarea[aria-describedby="send-help"]')
+    composer.focus()
+    messages = [msg(2), ...messages]; await tick(10000)
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true })
+    await act(async () => document.dispatchEvent(new Event('visibilitychange')))
+    await tick(5000)
+    assert.equal(document.querySelector('.sr-only').textContent, '')
+    messages = [msg(3), ...messages]; await tick(10000)
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    await act(async () => document.dispatchEvent(new Event('visibilitychange')))
+    await tick(10000); await tick(5000)
+    assert.equal(document.querySelector('.sr-only').textContent, '')
+    messages = [msg(4), ...messages]; await tick(10000); await tick(5000)
+    const region = document.querySelector('.sr-only')
+    assert.equal(region.textContent, '1 new message.')
+    assert.equal(region.getAttribute('aria-live'), 'polite')
+    assert.equal(region.getAttribute('aria-atomic'), 'true')
+    assert.equal(document.querySelector('.message-list').hasAttribute('aria-live'), false)
+    assert.equal(document.activeElement, composer)
+    assert.equal(scrolls, 0)
+  } finally {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    await cleanup()
+  }
+})
+
+test('rate limiting preserves both drafts and retry IDs; confirmed denial removes private recovery', async () => {
+  for (const inThread of [false, true]) {
+    try {
+      fixture(); await mount('?workspace=w&channel=c' + (inThread ? '&thread=m1' : ''))
+      const surface = document.querySelector(inThread ? '.thread-panel' : '.channel-conversation')
+      const composer = surface.querySelector('textarea')
+      const action = inThread ? 'thread_reply' : 'send_message'
+      await input(composer, 'private recovery draft'); composer.focus()
+      failure = new ActionError(429)
+      await key(composer)
+      assert.equal(composer.value, 'private recovery draft')
+      assert.equal(document.activeElement, composer)
+      assert.ok(surface.querySelector('button[type="button"]'))
+      assert.match(document.body.textContent, /Too many requests/)
+      assert.ok(!document.body.textContent.includes('private server detail'))
+      const first = calls.find(call => call.name === action)
+      await tick(10000); await tick(5000)
+      assert.equal(calls.filter(call => call.name === action).length, 1, 'polling never resends')
+      assert.equal(composer.value, 'private recovery draft')
+      await key(composer)
+      const attempts = calls.filter(call => call.name === action)
+      assert.equal(attempts.length, 2)
+      assert.equal(attempts[1].params.message_id, first.params.message_id)
+      failure = new ActionError(403)
+      await key(composer)
+      if (inThread) assert.equal(surface.querySelector('textarea'), null, 'revoked thread removes its composer')
+      else assert.equal(composer.value, '')
+      assert.ok(!surface.textContent.includes('Copy draft'))
+      assert.ok(!surface.textContent.includes('Private body'))
+      assert.match(document.body.textContent, /Access denied/)
+      assert.ok(!localStorage.getItem('draft'))
+    } finally { await cleanup() }
+  }
+})

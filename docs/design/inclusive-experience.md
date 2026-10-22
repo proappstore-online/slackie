@@ -38,6 +38,10 @@ channel-list heading, then workspace selector when no channel remains.
 
 ## Announcements and recovery (#27)
 
+The expanded [event and recovery matrix](../announcements-and-recovery.md)
+records the #27 decisions, remaining implementation gaps and review gate. Its
+evidence status qualifies the implementation summary below.
+
 Implemented policy: one persistent polite, atomic status region for background
 updates and one assertive error region for the user's failed action. Do not make
 the whole message list live. Background message announcements default off until

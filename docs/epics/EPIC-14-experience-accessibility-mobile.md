@@ -86,3 +86,12 @@ surface contracts and P0 NVDA/VoiceOver matrix at 200% and 400% zoom. Repository
 consistency review is recorded; product/design approval and manual evidence remain
 pending. No build-ready child tasks are approved. E14.3 remains unchecked for
 manual acceptance.
+
+## E14.4/E14.6 specification (#27)
+
+[Announcements and recovery](../announcements-and-recovery.md) expands the
+bounded event policy and workspace/channel/thread state matrix with retry, Copy,
+focus and test decisions. Repository consistency review records remaining UI
+gaps; product/design approval and native-reader/device evidence remain pending.
+No build-ready child tasks are approved. E14.4/E14.6 remain unchecked for manual
+acceptance.
